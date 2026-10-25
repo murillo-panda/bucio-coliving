@@ -43,6 +43,14 @@ Sube esta carpeta a un repositorio Git y crea un sitio desde ese repositorio en 
 - funciones privadas para login y lectura de Google Sheets;
 - rutas de React compatibles con recargas directas.
 
+Publica el **repositorio completo** mediante la integración Git de Netlify o Netlify CLI. No subas solamente la carpeta `dist`: esa carpeta contiene la interfaz, pero no las funciones necesarias para el login. La configuración esperada es:
+
+- Build command: `npm run build`
+- Publish directory: `dist`
+- Functions directory: `netlify/functions`
+
+La regla `public/_redirects` también se copia al build para que `/login`, `/diario`, `/mensual` y `/anual` carguen correctamente al abrirlas o recargarlas directamente.
+
 La aplicación consulta Google Sheets automáticamente después de iniciar sesión y cada vez que se recarga la página. Después de cambiar la hoja mientras la web ya está abierta, pulsa **Actualizar** para consultar los datos de nuevo sin recargar toda la página. Todas las respuestas se solicitan sin caché.
 
 ## Comprobaciones
