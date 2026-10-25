@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildCashSnapshot, formatPeriod } from './cash.js'
+import { buildCashSnapshot, filterRowsByDateRange, formatPeriod } from './cash.js'
 
 const movements = [
   { id: '1', date: '2026-01-01', concept: 'Saldo inicial', type: 'Ingreso', amount: 310 },
@@ -41,5 +41,22 @@ describe('buildCashSnapshot', () => {
 describe('formatPeriod', () => {
   it('formatea los meses en español', () => {
     expect(formatPeriod('2026-02', 'monthly')).toBe('Febrero de 2026')
+  })
+})
+
+describe('filterRowsByDateRange', () => {
+  const rows = [
+    { key: '2026-01-01' },
+    { key: '2026-01-15' },
+    { key: '2026-02-01' },
+  ]
+
+  it('incluye los límites del rango seleccionado', () => {
+    expect(filterRowsByDateRange(rows, '2026-01-01', '2026-01-15')).toEqual(rows.slice(0, 2))
+  })
+
+  it('permite rangos abiertos y mostrar todo', () => {
+    expect(filterRowsByDateRange(rows, '2026-01-15', '')).toEqual(rows.slice(1))
+    expect(filterRowsByDateRange(rows)).toEqual(rows)
   })
 })

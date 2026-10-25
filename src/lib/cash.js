@@ -97,6 +97,13 @@ export function buildCashSnapshot(source = []) {
   }
 }
 
+export function filterRowsByDateRange(rows, from = '', to = '') {
+  return rows.filter((row) => (
+    (!from || row.key >= from)
+    && (!to || row.key <= to)
+  ))
+}
+
 export function formatCurrency(value) {
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',

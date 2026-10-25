@@ -12,16 +12,34 @@ import {
 } from 'react-router-dom'
 import {
   buildCashSnapshot,
+  filterRowsByDateRange,
   formatCurrency,
   formatDate,
   formatPeriod,
 } from './lib/cash.js'
 import { fetchCashCsv } from './lib/csv.js'
+import brandLogo from './assets/bucio-coliving-logo.png'
+import brandMark from './assets/bucio-coliving-mark.png'
 import styles from './App.module.css'
 
 const API_BASE = '/api'
 const DATA_SOURCE = import.meta.env.VITE_DATA_SOURCE || 'google-sheets-api'
 const USE_DEMO_AUTH = import.meta.env.VITE_AUTH_MODE === 'demo'
+
+function toLocalIsoDate(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function currentMonthRange() {
+  const today = new Date()
+  return {
+    from: `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`,
+    to: toLocalIsoDate(today),
+  }
+}
 
 async function requestJson(path, options) {
   const response = await fetch(`${API_BASE}/${path}`, {
@@ -108,10 +126,10 @@ function LoginPage({ onLogin }) {
   return (
     <main className={styles.loginPage}>
       <section className={styles.loginCard} aria-labelledby="login-title">
-        <div className={styles.brandMark} aria-hidden="true">RC</div>
-        <p className={styles.eyebrow}>Control de caja</p>
+        <img className={styles.loginLogo} src={brandLogo} alt="Bucio Coliving" />
+        <p className={styles.eyebrow}>Módulo de caja</p>
         <h1 id="login-title">Acceder</h1>
-        <p className={styles.loginIntro}>Consulta los ingresos, egresos y saldos del hostel.</p>
+        <p className={styles.loginIntro}>Consulta los ingresos, egresos y saldos de Bucio Coliving.</p>
 
         <form className={styles.loginForm} onSubmit={handleSubmit}>
           <label>
@@ -198,11 +216,11 @@ function AppShell({ onLogout }) {
   return (
     <div className={styles.appShell}>
       <header className={styles.topbar}>
-        <NavLink className={styles.brand} to="/" aria-label="Control de caja, inicio">
-          <span className={styles.brandMark} aria-hidden="true">RC</span>
+        <NavLink className={styles.brand} to="/" aria-label="Bucio Coliving, módulo de caja, inicio">
+          <img className={styles.brandImage} src={brandMark} alt="" />
           <span>
-            <strong>Control de caja</strong>
-            <small>Hostel</small>
+            <strong>Bucio Coliving</strong>
+            <small>Módulo de caja</small>
           </span>
         </NavLink>
         <div className={styles.topbarActions}>
@@ -296,19 +314,96 @@ function HomePage() {
 
 function ReportPage({ type }) {
   const { snapshot } = useOutletContext()
+  const [dateRange, setDateRange] = useState(currentMonthRange)
   const config = {
     daily: { eyebrow: 'Detalle diario', title: 'Reporte diario', description: 'Ingresos, egresos y saldo por fecha.', rows: snapshot.daily },
     monthly: { eyebrow: 'Consolidado mensual', title: 'Reporte mensual', description: 'Resultado acumulado de cada mes.', rows: snapshot.monthly },
     annual: { eyebrow: 'Consolidado anual', title: 'Reporte anual', description: 'Resultado acumulado de cada año.', rows: snapshot.annual },
   }[type]
+  const invalidRange = type === 'daily'
+    && dateRange.from
+    && dateRange.to
+    && dateRange.from > dateRange.to
+  const visibleRows = type === 'daily' && !invalidRange
+    ? filterRowsByDateRange(config.rows, dateRange.from, dateRange.to)
+    : config.rows
+
+  function showAllDates() {
+    setDateRange({
+      from: snapshot.daily.at(0)?.key || '',
+      to: snapshot.daily.at(-1)?.key || '',
+    })
+  }
 
   return (
     <>
       <PageHeading eyebrow={config.eyebrow} title={config.title} description={config.description} />
+      {type === 'daily' ? (
+        <DateRangeFilter
+          dateRange={dateRange}
+          invalidRange={invalidRange}
+          resultCount={visibleRows.length}
+          onChange={setDateRange}
+          onCurrentMonth={() => setDateRange(currentMonthRange())}
+          onShowAll={showAllDates}
+          onClear={() => setDateRange({ from: '', to: '' })}
+        />
+      ) : null}
       <section className={styles.panel}>
-        <ReportTable rows={config.rows} type={type} movements={snapshot.movements} />
+        {invalidRange ? (
+          <EmptyReportState text="La fecha inicial no puede ser posterior a la fecha final." />
+        ) : visibleRows.length ? (
+          <ReportTable rows={visibleRows} type={type} movements={snapshot.movements} />
+        ) : (
+          <EmptyReportState text="No hay movimientos en el rango seleccionado." />
+        )}
       </section>
     </>
+  )
+}
+
+function DateRangeFilter({ dateRange, invalidRange, resultCount, onChange, onCurrentMonth, onShowAll, onClear }) {
+  function updateField(field, value) {
+    onChange((current) => ({ ...current, [field]: value }))
+  }
+
+  return (
+    <section className={styles.dateFilter} aria-labelledby="date-filter-title">
+      <div className={styles.dateFilterHeading}>
+        <div>
+          <p className={styles.eyebrow}>Filtrar movimientos</p>
+          <h2 id="date-filter-title">Rango de fechas</h2>
+        </div>
+        <p className={`${styles.filterStatus} ${invalidRange ? styles.filterError : ''}`} aria-live="polite">
+          {invalidRange ? 'Revisa las fechas seleccionadas' : `${resultCount} ${resultCount === 1 ? 'día encontrado' : 'días encontrados'}`}
+        </p>
+      </div>
+      <div className={styles.dateFilterControls}>
+        <div className={styles.dateFields}>
+          <label className={styles.dateField}>
+            <span>Desde</span>
+            <input
+              type="date"
+              value={dateRange.from}
+              onChange={(event) => updateField('from', event.target.value)}
+            />
+          </label>
+          <label className={styles.dateField}>
+            <span>Hasta</span>
+            <input
+              type="date"
+              value={dateRange.to}
+              onChange={(event) => updateField('to', event.target.value)}
+            />
+          </label>
+        </div>
+        <div className={styles.dateFilterActions}>
+          <button className={`${styles.filterButton} ${styles.filterButtonPrimary}`} onClick={onCurrentMonth} type="button">Este mes</button>
+          <button className={styles.filterButton} onClick={onShowAll} type="button">Todo</button>
+          <button className={styles.filterButton} onClick={onClear} type="button">Limpiar</button>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -333,24 +428,45 @@ function MetricCard({ label, value, tone = 'neutral' }) {
 
 function MovementsTable({ rows }) {
   return (
-    <div className={styles.tableScroller}>
-      <table>
-        <thead>
-          <tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th className={styles.numeric}>Importe</th><th className={styles.numeric}>Saldo</th></tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              <td>{formatDate(row.date)}</td>
-              <td>{row.concept}</td>
-              <td><TypeBadge type={row.type} /></td>
-              <td className={styles.numeric}>{formatCurrency(row.amount)}</td>
-              <td className={styles.numeric}>{formatCurrency(row.balance)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className={styles.desktopTable}>
+        <div className={styles.tableScroller}>
+          <table>
+            <thead>
+              <tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th className={styles.numeric}>Importe</th><th className={styles.numeric}>Saldo</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id}>
+                  <td>{formatDate(row.date)}</td>
+                  <td>{row.concept}</td>
+                  <td><TypeBadge type={row.type} /></td>
+                  <td className={styles.numeric}>{formatCurrency(row.amount)}</td>
+                  <td className={styles.numeric}>{formatCurrency(row.balance)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className={styles.mobileCards} aria-label="Últimos movimientos">
+        {rows.map((row) => (
+          <article className={styles.movementCard} key={row.id}>
+            <header className={styles.mobileCardHeader}>
+              <div>
+                <time dateTime={row.date}>{formatDate(row.date)}</time>
+                <h3>{row.concept}</h3>
+              </div>
+              <TypeBadge type={row.type} />
+            </header>
+            <dl className={styles.cardMetrics}>
+              <CardMetric label="Importe" value={formatCurrency(row.amount)} tone={row.type === 'Ingreso' ? 'positive' : row.type === 'Egreso' ? 'negative' : 'neutral'} />
+              <CardMetric label="Saldo" value={formatCurrency(row.balance)} emphasized />
+            </dl>
+          </article>
+        ))}
+      </div>
+    </>
   )
 }
 
@@ -365,45 +481,97 @@ function ReportTable({ rows, type, movements }) {
     : new Map()
 
   return (
-    <div className={styles.tableScroller}>
-      <table>
-        <thead>
-          <tr>
-            <th>Periodo</th>
-            {type === 'daily' ? <th>Detalle del día</th> : null}
-            <th className={styles.numeric}>Saldo inicial</th>
-            <th className={styles.numeric}>Ingresos</th>
-            <th className={styles.numeric}>Egresos</th>
-            <th className={styles.numeric}>Flujo neto</th>
-            <th className={styles.numeric}>Saldo final</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.key}>
-              <td className={styles.periodCell}>{formatPeriod(row.key, type)}</td>
-              {type === 'daily' ? (
-                <td className={styles.detailsCell}>
-                  <ul className={styles.dailyDetailList}>
-                    {(movementsByDay.get(row.key) || []).map((movement) => (
-                      <li className={styles.dailyDetailItem} key={movement.id}>
-                        <span className={styles.dailyDetailConcept}>{movement.concept}</span>
-                        <TypeBadge type={movement.type} />
-                        <span className={styles.dailyDetailAmount}>{formatCurrency(movement.amount)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </td>
-              ) : null}
-              <td className={styles.numeric}>{formatCurrency(row.opening)}</td>
-              <td className={`${styles.numeric} ${styles.positiveText}`}>{formatCurrency(row.income)}</td>
-              <td className={styles.numeric}>{formatCurrency(row.expense)}</td>
-              <td className={`${styles.numeric} ${row.net < 0 ? styles.negativeText : ''}`}>{formatCurrency(row.net)}</td>
-              <td className={`${styles.numeric} ${styles.balanceCell}`}>{formatCurrency(row.closing)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <>
+      <div className={styles.desktopTable}>
+        <div className={styles.tableScroller}>
+          <table>
+            <thead>
+              <tr>
+                <th>Periodo</th>
+                {type === 'daily' ? <th>Detalle del día</th> : null}
+                <th className={styles.numeric}>Saldo inicial</th>
+                <th className={styles.numeric}>Ingresos</th>
+                <th className={styles.numeric}>Egresos</th>
+                <th className={styles.numeric}>Flujo neto</th>
+                <th className={styles.numeric}>Saldo final</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.key}>
+                  <td className={styles.periodCell}>{formatPeriod(row.key, type)}</td>
+                  {type === 'daily' ? (
+                    <td className={styles.detailsCell}>
+                      <DailyMovementList movements={movementsByDay.get(row.key) || []} />
+                    </td>
+                  ) : null}
+                  <td className={styles.numeric}>{formatCurrency(row.opening)}</td>
+                  <td className={`${styles.numeric} ${styles.positiveText}`}>{formatCurrency(row.income)}</td>
+                  <td className={styles.numeric}>{formatCurrency(row.expense)}</td>
+                  <td className={`${styles.numeric} ${row.net < 0 ? styles.negativeText : ''}`}>{formatCurrency(row.net)}</td>
+                  <td className={`${styles.numeric} ${styles.balanceCell}`}>{formatCurrency(row.closing)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div className={styles.mobileCards} aria-label={`Reporte ${type === 'daily' ? 'diario' : type === 'monthly' ? 'mensual' : 'anual'}`}>
+        {rows.map((row) => (
+          <article className={styles.reportCard} key={row.key}>
+            <header className={styles.reportCardHeader}>
+              <p>{type === 'daily' ? 'Día' : type === 'monthly' ? 'Mes' : 'Año'}</p>
+              <h3>{formatPeriod(row.key, type)}</h3>
+            </header>
+            {type === 'daily' ? (
+              <section className={styles.mobileDetail} aria-label={`Movimientos del ${formatPeriod(row.key, type)}`}>
+                <h4>Detalle del día</h4>
+                <DailyMovementList movements={movementsByDay.get(row.key) || []} />
+              </section>
+            ) : null}
+            <dl className={styles.cardMetrics}>
+              <CardMetric label="Saldo inicial" value={formatCurrency(row.opening)} />
+              <CardMetric label="Ingresos" value={formatCurrency(row.income)} tone="positive" />
+              <CardMetric label="Egresos" value={formatCurrency(row.expense)} tone="negative" />
+              <CardMetric label="Flujo neto" value={formatCurrency(row.net)} tone={row.net < 0 ? 'negative' : 'neutral'} />
+              <CardMetric label="Saldo final" value={formatCurrency(row.closing)} emphasized wide />
+            </dl>
+          </article>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function DailyMovementList({ movements }) {
+  return (
+    <ul className={styles.dailyDetailList}>
+      {movements.map((movement) => (
+        <li className={styles.dailyDetailItem} key={movement.id}>
+          <span className={styles.dailyDetailConcept}>{movement.concept}</span>
+          <TypeBadge type={movement.type} />
+          <span className={styles.dailyDetailAmount}>{formatCurrency(movement.amount)}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function CardMetric({ label, value, tone = 'neutral', emphasized = false, wide = false }) {
+  const toneClass = tone === 'positive' ? styles.positiveText : tone === 'negative' ? styles.negativeText : ''
+  return (
+    <div className={`${styles.cardMetric} ${wide ? styles.cardMetricWide : ''}`}>
+      <dt>{label}</dt>
+      <dd className={`${toneClass} ${emphasized ? styles.cardMetricEmphasized : ''}`}>{value}</dd>
+    </div>
+  )
+}
+
+function EmptyReportState({ text }) {
+  return (
+    <div className={styles.emptyReport} role="status">
+      <h2>Sin resultados</h2>
+      <p>{text}</p>
     </div>
   )
 }

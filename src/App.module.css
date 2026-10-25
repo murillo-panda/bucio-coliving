@@ -36,17 +36,13 @@
   font-size: 0.78rem;
 }
 
-.brandMark {
-  display: grid;
-  width: 42px;
-  height: 42px;
+.brandImage {
+  width: 48px;
+  height: 48px;
   flex: 0 0 auto;
-  place-items: center;
-  border-radius: 13px;
-  color: var(--white);
-  background: var(--blue-600);
-  font-weight: 800;
-  letter-spacing: -0.03em;
+  border-radius: 12px;
+  object-fit: contain;
+  background: var(--white);
 }
 
 .topbarActions {
@@ -233,6 +229,107 @@
   box-shadow: var(--shadow);
 }
 
+.dateFilter {
+  margin-bottom: 18px;
+  padding: 20px 22px;
+  border: 1px solid var(--slate-200);
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.dateFilterHeading,
+.dateFilterControls,
+.dateFields,
+.dateFilterActions {
+  display: flex;
+}
+
+.dateFilterHeading,
+.dateFilterControls {
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.dateFilterHeading {
+  margin-bottom: 18px;
+}
+
+.dateFilterHeading h2 {
+  margin: 0;
+  color: var(--navy-950);
+  font-size: 1.15rem;
+}
+
+.filterStatus {
+  margin: 0;
+  color: var(--slate-500);
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.filterError {
+  color: var(--red-700);
+}
+
+.dateFields,
+.dateFilterActions {
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.dateField {
+  display: grid;
+  gap: 7px;
+  color: var(--slate-700);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.dateField input {
+  min-width: 170px;
+  min-height: 44px;
+  border: 1px solid var(--slate-300);
+  border-radius: 10px;
+  padding: 0 12px;
+  color: var(--navy-950);
+  background: var(--white);
+}
+
+.dateField input:focus {
+  border-color: var(--blue-600);
+}
+
+.filterButton {
+  min-height: 44px;
+  border: 1px solid var(--slate-300);
+  border-radius: 10px;
+  padding: 0 14px;
+  color: var(--slate-700);
+  background: var(--white);
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.filterButton:hover {
+  color: var(--blue-700);
+  border-color: var(--blue-600);
+  background: var(--blue-50);
+}
+
+.filterButtonPrimary {
+  color: var(--white);
+  border-color: var(--blue-700);
+  background: var(--blue-700);
+}
+
+.filterButtonPrimary:hover {
+  color: var(--white);
+  border-color: var(--navy-800);
+  background: var(--navy-800);
+}
+
 .panelHeader {
   display: flex;
   align-items: center;
@@ -251,6 +348,14 @@
 .recordCount {
   color: var(--slate-500);
   font-size: 0.83rem;
+}
+
+.desktopTable {
+  display: block;
+}
+
+.mobileCards {
+  display: none;
 }
 
 .tableScroller {
@@ -298,6 +403,22 @@
 .balanceCell {
   color: var(--navy-950);
   font-weight: 750;
+}
+
+.emptyReport {
+  padding: 54px 24px;
+  text-align: center;
+}
+
+.emptyReport h2 {
+  margin: 0 0 8px;
+  color: var(--navy-950);
+  font-size: 1.25rem;
+}
+
+.emptyReport p {
+  margin: 0;
+  color: var(--slate-500);
 }
 
 .detailsCell {
@@ -386,8 +507,11 @@
   box-shadow: 0 24px 64px rgba(16, 34, 56, 0.13);
 }
 
-.loginCard .brandMark {
-  margin-bottom: 24px;
+.loginLogo {
+  display: block;
+  width: min(168px, 52vw);
+  height: auto;
+  margin: 0 auto 24px;
 }
 
 .loginCard h1 {
@@ -475,6 +599,181 @@
   .metricsGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .dateFilterControls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .dateFilterActions {
+    align-items: center;
+  }
+}
+
+@media (max-width: 48rem) {
+  .desktopTable {
+    display: none;
+  }
+
+  .mobileCards {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .movementCard,
+  .reportCard {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--slate-200);
+    border-radius: 14px;
+    background: var(--white);
+  }
+
+  .mobileCardHeader,
+  .reportCardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 17px;
+  }
+
+  .mobileCardHeader time,
+  .reportCardHeader p {
+    display: block;
+    margin: 0 0 5px;
+    color: var(--slate-500);
+    font-size: 0.75rem;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .mobileCardHeader h3,
+  .reportCardHeader h3 {
+    margin: 0;
+    color: var(--navy-950);
+    font-size: 1rem;
+    line-height: 1.35;
+  }
+
+  .cardMetrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+    border-top: 1px solid var(--slate-100);
+  }
+
+  .cardMetric {
+    min-width: 0;
+    padding: 14px 17px;
+    border-right: 1px solid var(--slate-100);
+    border-bottom: 1px solid var(--slate-100);
+  }
+
+  .cardMetric:nth-child(even),
+  .cardMetricWide {
+    border-right: 0;
+  }
+
+  .cardMetricWide {
+    grid-column: 1 / -1;
+  }
+
+  .cardMetric dt {
+    margin-bottom: 5px;
+    color: var(--slate-500);
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .cardMetric dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--navy-950);
+    font-size: 0.96rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 750;
+  }
+
+  .cardMetric dd.positiveText {
+    color: var(--green-700);
+  }
+
+  .cardMetric dd.negativeText {
+    color: var(--red-700);
+  }
+
+  .cardMetricEmphasized {
+    font-size: 1.08rem !important;
+  }
+
+  .mobileDetail {
+    padding: 0 17px 17px;
+  }
+
+  .mobileDetail h4 {
+    margin: 0 0 11px;
+    color: var(--slate-500);
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .mobileDetail .dailyDetailList {
+    padding: 13px;
+    border-radius: 10px;
+    background: var(--slate-100);
+  }
+
+  .dailyDetailItem {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .dailyDetailItem .badge {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .dailyDetailAmount {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .dateFilter {
+    padding: 18px;
+  }
+
+  .dateFilterHeading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .dateFields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .dateField input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dateFilterActions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .filterButton {
+    padding-inline: 8px;
+  }
 }
 
 @media (max-width: 600px) {
@@ -539,8 +838,13 @@
     padding: 28px 22px;
   }
 
-  .detailsCell {
-    min-width: 290px;
+  .brandImage {
+    width: 44px;
+    height: 44px;
+  }
+
+  .dateFields {
+    grid-template-columns: 1fr;
   }
 }
 
