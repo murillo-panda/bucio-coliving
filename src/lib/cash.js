@@ -104,6 +104,10 @@ export function filterRowsByDateRange(rows, from = '', to = '') {
   ))
 }
 
+export function sortRowsNewestFirst(rows) {
+  return [...rows].sort((left, right) => right.key.localeCompare(left.key))
+}
+
 export function formatCurrency(value) {
   return new Intl.NumberFormat('es-ES', {
     style: 'currency',

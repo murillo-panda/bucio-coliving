@@ -16,6 +16,7 @@ import {
   formatCurrency,
   formatDate,
   formatPeriod,
+  sortRowsNewestFirst,
 } from './lib/cash.js'
 import { fetchCashCsv } from './lib/csv.js'
 import brandLogo from './assets/bucio-coliving-logo.png'
@@ -325,7 +326,7 @@ function ReportPage({ type }) {
     && dateRange.to
     && dateRange.from > dateRange.to
   const visibleRows = type === 'daily' && !invalidRange
-    ? filterRowsByDateRange(config.rows, dateRange.from, dateRange.to)
+    ? sortRowsNewestFirst(filterRowsByDateRange(config.rows, dateRange.from, dateRange.to))
     : config.rows
 
   function showAllDates() {
@@ -337,7 +338,12 @@ function ReportPage({ type }) {
 
   return (
     <>
-      <PageHeading eyebrow={config.eyebrow} title={config.title} description={config.description} />
+      <PageHeading
+        eyebrow={config.eyebrow}
+        title={config.title}
+        description={config.description}
+        balance={type === 'daily' ? snapshot.currentBalance : null}
+      />
       {type === 'daily' ? (
         <DateRangeFilter
           dateRange={dateRange}
@@ -367,52 +373,72 @@ function DateRangeFilter({ dateRange, invalidRange, resultCount, onChange, onCur
     onChange((current) => ({ ...current, [field]: value }))
   }
 
+  const rangeLabel = dateRange.from && dateRange.to
+    ? `${formatDate(dateRange.from)} – ${formatDate(dateRange.to)}`
+    : dateRange.from
+      ? `Desde ${formatDate(dateRange.from)}`
+      : dateRange.to
+        ? `Hasta ${formatDate(dateRange.to)}`
+        : 'Todas las fechas'
+
   return (
-    <section className={styles.dateFilter} aria-labelledby="date-filter-title">
-      <div className={styles.dateFilterHeading}>
-        <div>
-          <p className={styles.eyebrow}>Filtrar movimientos</p>
-          <h2 id="date-filter-title">Rango de fechas</h2>
+    <details className={styles.dateFilter}>
+      <summary className={styles.dateFilterSummary}>
+        <span className={styles.filterSummaryCopy}>
+          <strong>Filtrar por fechas</strong>
+          <small>{rangeLabel}</small>
+        </span>
+        <span className={`${styles.filterStatus} ${invalidRange ? styles.filterError : ''}`} aria-live="polite">
+          {invalidRange ? 'Revisa las fechas' : `${resultCount} ${resultCount === 1 ? 'día' : 'días'}`}
+        </span>
+        <span className={styles.filterChevron} aria-hidden="true" />
+      </summary>
+      <div className={styles.dateFilterBody}>
+        <div className={styles.dateFilterControls}>
+          <div className={styles.dateFields}>
+            <label className={styles.dateField}>
+              <span>Desde</span>
+              <input
+                type="date"
+                value={dateRange.from}
+                onChange={(event) => updateField('from', event.target.value)}
+              />
+            </label>
+            <label className={styles.dateField}>
+              <span>Hasta</span>
+              <input
+                type="date"
+                value={dateRange.to}
+                onChange={(event) => updateField('to', event.target.value)}
+              />
+            </label>
+          </div>
+          <div className={styles.dateFilterActions}>
+            <button className={`${styles.filterButton} ${styles.filterButtonPrimary}`} onClick={onCurrentMonth} type="button">Este mes</button>
+            <button className={styles.filterButton} onClick={onShowAll} type="button">Todo</button>
+            <button className={styles.filterButton} onClick={onClear} type="button">Limpiar</button>
+          </div>
         </div>
-        <p className={`${styles.filterStatus} ${invalidRange ? styles.filterError : ''}`} aria-live="polite">
-          {invalidRange ? 'Revisa las fechas seleccionadas' : `${resultCount} ${resultCount === 1 ? 'día encontrado' : 'días encontrados'}`}
-        </p>
+        {invalidRange ? <p className={styles.filterValidation} role="alert">La fecha inicial no puede ser posterior a la fecha final.</p> : null}
       </div>
-      <div className={styles.dateFilterControls}>
-        <div className={styles.dateFields}>
-          <label className={styles.dateField}>
-            <span>Desde</span>
-            <input
-              type="date"
-              value={dateRange.from}
-              onChange={(event) => updateField('from', event.target.value)}
-            />
-          </label>
-          <label className={styles.dateField}>
-            <span>Hasta</span>
-            <input
-              type="date"
-              value={dateRange.to}
-              onChange={(event) => updateField('to', event.target.value)}
-            />
-          </label>
-        </div>
-        <div className={styles.dateFilterActions}>
-          <button className={`${styles.filterButton} ${styles.filterButtonPrimary}`} onClick={onCurrentMonth} type="button">Este mes</button>
-          <button className={styles.filterButton} onClick={onShowAll} type="button">Todo</button>
-          <button className={styles.filterButton} onClick={onClear} type="button">Limpiar</button>
-        </div>
-      </div>
-    </section>
+    </details>
   )
 }
 
-function PageHeading({ eyebrow, title, description }) {
+function PageHeading({ eyebrow, title, description, balance = null }) {
   return (
-    <header className={styles.pageHeading}>
-      <p className={styles.eyebrow}>{eyebrow}</p>
-      <h1>{title}</h1>
-      {description ? <p>{description}</p> : null}
+    <header className={`${styles.pageHeading} ${balance !== null ? styles.pageHeadingWithBalance : ''}`}>
+      <div className={styles.pageHeadingCopy}>
+        <p className={styles.eyebrow}>{eyebrow}</p>
+        <h1>{title}</h1>
+        {description ? <p>{description}</p> : null}
+      </div>
+      {balance !== null ? (
+        <aside className={styles.compactBalance} aria-label={`Saldo disponible: ${formatCurrency(balance)}`}>
+          <span>Saldo disponible</span>
+          <strong>{formatCurrency(balance)}</strong>
+        </aside>
+      ) : null}
     </header>
   )
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildCashSnapshot, filterRowsByDateRange, formatPeriod } from './cash.js'
+import {
+  buildCashSnapshot,
+  filterRowsByDateRange,
+  formatPeriod,
+  sortRowsNewestFirst,
+} from './cash.js'
 
 const movements = [
   { id: '1', date: '2026-01-01', concept: 'Saldo inicial', type: 'Ingreso', amount: 310 },
@@ -58,5 +63,18 @@ describe('filterRowsByDateRange', () => {
   it('permite rangos abiertos y mostrar todo', () => {
     expect(filterRowsByDateRange(rows, '2026-01-15', '')).toEqual(rows.slice(1))
     expect(filterRowsByDateRange(rows)).toEqual(rows)
+  })
+})
+
+describe('sortRowsNewestFirst', () => {
+  it('ordena los periodos de más reciente a más antiguo sin modificar el origen', () => {
+    const rows = [{ key: '2026-01-01' }, { key: '2026-01-03' }, { key: '2026-01-02' }]
+
+    expect(sortRowsNewestFirst(rows).map((row) => row.key)).toEqual([
+      '2026-01-03',
+      '2026-01-02',
+      '2026-01-01',
+    ])
+    expect(rows[0].key).toBe('2026-01-01')
   })
 })
