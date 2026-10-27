@@ -456,6 +456,7 @@ function MovementPage() {
 
   async function handleSubmit(event) {
     event.preventDefault()
+    const formElement = event.currentTarget
     setSubmitting(true)
     setMessage({ tone: '', text: '' })
     try {
@@ -463,7 +464,7 @@ function MovementPage() {
       await addMovement({ ...form, receipt: compressedReceipt })
       setForm({ type: form.type, concept: '', amount: '', occurredAt: toLocalDateTimeInput() })
       setReceipt(null)
-      event.currentTarget.reset()
+      formElement.reset()
       setFormOpen(false)
       setMessage({
         tone: 'success',
