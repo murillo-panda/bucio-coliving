@@ -73,7 +73,7 @@ create table public.movement_receipts (
   storage_path text not null unique,
   original_name text not null,
   content_type text not null check (content_type like 'image/%'),
-  size_bytes integer not null check (size_bytes > 0 and size_bytes <= 1048576),
+  size_bytes integer not null check (size_bytes > 0 and size_bytes <= 2097152),
   created_at timestamptz not null default now(),
   created_by uuid not null default auth.uid() references public.profiles(id) on delete restrict
 );
@@ -290,7 +290,7 @@ grant insert on public.cash_movements, public.movement_receipts to authenticated
 grant select on public.audit_events to authenticated;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('receipts', 'receipts', false, 1048576, array['image/jpeg', 'image/png', 'image/webp'])
+values ('receipts', 'receipts', false, 2097152, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do update set
   public = false,
   file_size_limit = excluded.file_size_limit,

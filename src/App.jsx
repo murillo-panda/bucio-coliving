@@ -574,7 +574,11 @@ function MovementPage() {
             <label className={styles.fieldWide}><span>Concepto</span><input value={form.concept} onChange={(event) => updateField('concept', event.target.value)} maxLength="180" required /></label>
             <label><span>Importe</span><input inputMode="decimal" min="0.01" step="0.01" type="number" value={form.amount} onChange={(event) => updateField('amount', event.target.value)} required /></label>
             <label><span>Fecha y hora efectiva</span><input type="datetime-local" value={form.occurredAt} onChange={(event) => updateField('occurredAt', event.target.value)} required /></label>
-            <label className={styles.fieldWide}><span>Comprobante opcional</span><input accept="image/*" capture="environment" type="file" onChange={(event) => setReceipt(event.target.files?.[0] || null)} /><small>Se convierte a WebP y se intenta reducir a un máximo aproximado de 350 KB antes de subirlo.</small></label>
+            <fieldset className={`${styles.receiptField} ${styles.fieldWide}`}>
+              <legend>Comprobante opcional</legend>
+              <ReceiptPicker onSelect={setReceipt} selectedFile={receipt} />
+              <small>Elige la cámara o una imagen de la galería. Se reduce automáticamente con un objetivo aproximado de 350 KB.</small>
+            </fieldset>
             <div className={`${styles.formActions} ${styles.fieldWide}`}>
               <button className={styles.primaryButton} disabled={submitting} type="submit">{submitting ? 'Guardando…' : 'Guardar movimiento'}</button>
             </div>
@@ -638,7 +642,6 @@ function canAttachReceipt(movement, workspace, currentUserId) {
 }
 
 function ReceiptAction({ currentUserId, movement, onAttach, workspace }) {
-  const inputRef = useRef(null)
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [receiptPreview, setReceiptPreview] = useState(null)
@@ -676,11 +679,7 @@ function ReceiptAction({ currentUserId, movement, onAttach, workspace }) {
     }
   }
 
-  async function uploadReceipt(event) {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-
+  async function uploadReceipt(file) {
     setStatus('uploading')
     setMessage('')
     try {
@@ -702,18 +701,13 @@ function ReceiptAction({ currentUserId, movement, onAttach, workspace }) {
         </button>
       ) : canAttach ? (
         <>
-          <input
-            accept="image/*"
-            aria-label={`Seleccionar comprobante para ${movement.concept}`}
-            capture="environment"
-            hidden
-            onChange={uploadReceipt}
-            ref={inputRef}
-            type="file"
+          <ReceiptPicker
+            compact
+            disabled={status === 'uploading'}
+            label={`comprobante para ${movement.concept}`}
+            onSelect={uploadReceipt}
           />
-          <button className={styles.inlineButton} disabled={status === 'uploading'} onClick={() => inputRef.current?.click()} type="button">
-            {status === 'uploading' ? 'Subiendo…' : 'Adjuntar comprobante'}
-          </button>
+          {status === 'uploading' ? <small className={styles.receiptProgress} role="status">Comprimiendo y subiendo…</small> : null}
         </>
       ) : <span className={styles.noReceipt}>Sin comprobante</span>}
       {message ? <small className={message.startsWith('Comprobante adjuntado') ? styles.receiptSuccess : styles.receiptError} role={message.startsWith('Comprobante adjuntado') ? 'status' : 'alert'}>{message}</small> : null}
@@ -733,6 +727,48 @@ function ReceiptAction({ currentUserId, movement, onAttach, workspace }) {
           </section>
         </div>
       ) : null}
+    </div>
+  )
+}
+
+function ReceiptPicker({ compact = false, disabled = false, label = 'comprobante', onSelect, selectedFile = null }) {
+  const cameraInputRef = useRef(null)
+  const galleryInputRef = useRef(null)
+
+  function selectFile(event) {
+    const file = event.target.files?.[0] || null
+    event.target.value = ''
+    if (file) onSelect(file)
+  }
+
+  return (
+    <div className={`${styles.receiptPicker} ${compact ? styles.receiptPickerCompact : ''}`}>
+      <input
+        accept="image/*"
+        aria-label={`Tomar foto del ${label}`}
+        capture="environment"
+        hidden
+        onChange={selectFile}
+        ref={cameraInputRef}
+        type="file"
+      />
+      <input
+        accept="image/*"
+        aria-label={`Elegir ${label} de la galería`}
+        hidden
+        onChange={selectFile}
+        ref={galleryInputRef}
+        type="file"
+      />
+      <div className={styles.receiptPickerButtons}>
+        <button className={compact ? styles.inlineButton : styles.receiptPickerButton} disabled={disabled} onClick={() => cameraInputRef.current?.click()} type="button">
+          Tomar foto
+        </button>
+        <button className={compact ? styles.inlineButton : styles.receiptPickerButton} disabled={disabled} onClick={() => galleryInputRef.current?.click()} type="button">
+          Elegir de la galería
+        </button>
+      </div>
+      {selectedFile ? <span className={styles.receiptFileName}>Seleccionado: {selectedFile.name}</span> : null}
     </div>
   )
 }

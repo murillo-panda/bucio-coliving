@@ -17,6 +17,14 @@ function throwIfError(error) {
   if (error) throw new Error(error.message)
 }
 
+function throwIfReceiptUploadError(error) {
+  if (!error) return
+  if (/maximum allowed size|exceeded.*size|too large/i.test(error.message || '')) {
+    throw new Error('La imagen supera el tamaño permitido. Prueba a seleccionarla nuevamente para volver a comprimirla.')
+  }
+  throwIfError(error)
+}
+
 function mapMovement(row) {
   const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator
   const receipts = Array.isArray(row.receipts) ? row.receipts : []
@@ -128,7 +136,7 @@ export async function attachMovementReceipt({ workspace, movementId, receipt }) 
   const uploadResult = await client.storage
     .from('receipts')
     .upload(storagePath, receipt, { contentType: receipt.type, upsert: false })
-  throwIfError(uploadResult.error)
+  throwIfReceiptUploadError(uploadResult.error)
 
   const receiptResult = await client.from('movement_receipts').insert({
     organization_id: workspace.organization.id,
