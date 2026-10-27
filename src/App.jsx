@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   BrowserRouter,
   Navigate,
@@ -19,6 +19,7 @@ import {
   sortRowsNewestFirst,
 } from './lib/cash.js'
 import {
+  attachMovementReceipt,
   createMovement,
   createReceiptSignedUrl,
   listMovements,
@@ -160,16 +161,12 @@ function LoginPage({ onLogin }) {
               required
             />
           </label>
-          <label>
-            Contraseña
-            <input
-              autoComplete="current-password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-          </label>
+          <PasswordField
+            autoComplete="current-password"
+            label="Contraseña"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
           {error ? <p className={styles.formError} role="alert">{error}</p> : null}
           <button className={styles.primaryButton} disabled={submitting} type="submit">
             {submitting ? 'Entrando…' : 'Entrar'}
@@ -224,13 +221,42 @@ function SetPasswordPage({ sessionState }) {
         <h1 id="password-title">Crea tu contraseña</h1>
         <p className={styles.loginIntro}>Usarás esta contraseña junto con tu correo electrónico.</p>
         <form className={styles.loginForm} onSubmit={handleSubmit}>
-          <label>Nueva contraseña<input autoComplete="new-password" minLength="8" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
-          <label>Repetir contraseña<input autoComplete="new-password" minLength="8" type="password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} required /></label>
+          <PasswordField autoComplete="new-password" label="Nueva contraseña" minLength="8" value={password} onChange={(event) => setPassword(event.target.value)} />
+          <PasswordField autoComplete="new-password" label="Repetir contraseña" minLength="8" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
           {error ? <p className={styles.formError} role="alert">{error}</p> : null}
           <button className={styles.primaryButton} disabled={submitting} type="submit">{submitting ? 'Guardando…' : 'Guardar contraseña'}</button>
         </form>
       </section>
     </main>
+  )
+}
+
+function PasswordField({ label, ...inputProps }) {
+  const inputId = useId()
+  const [visible, setVisible] = useState(false)
+  const actionLabel = visible ? `Ocultar ${label.toLowerCase()}` : `Mostrar ${label.toLowerCase()}`
+
+  return (
+    <div className={styles.passwordField}>
+      <label htmlFor={inputId}>{label}</label>
+      <span className={styles.passwordInput}>
+        <input {...inputProps} id={inputId} type={visible ? 'text' : 'password'} required />
+        <button
+          aria-label={actionLabel}
+          aria-pressed={visible}
+          className={styles.passwordToggle}
+          onClick={() => setVisible((current) => !current)}
+          title={actionLabel}
+          type="button"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            {visible
+              ? <><path d="M3 3l18 18" /><path d="M10.6 10.7a2 2 0 0 0 2.7 2.7M9.9 4.2A10.4 10.4 0 0 1 12 4c5.5 0 9 8 9 8a17 17 0 0 1-2.1 3.2M6.6 6.6C4.3 8.1 3 12 3 12s3.5 8 9 8a9.8 9.8 0 0 0 4.2-.9" /></>
+              : <><path d="M3 12s3.5-8 9-8 9 8 9 8-3.5 8-9 8-9-8-9-8z" /><circle cx="12" cy="12" r="3" /></>}
+          </svg>
+        </button>
+      </span>
+    </div>
   )
 }
 
@@ -352,7 +378,28 @@ function useCashData(session, onUnauthorized) {
     await load()
   }, [load])
 
-  return { ...state, reload: load, addMovement, annulMovement }
+  const addReceipt = useCallback(async (movement, receipt) => {
+    if (isDemoMode) {
+      setState((current) => ({
+        ...current,
+        movements: current.movements.map((item) => item.id === movement.id ? {
+          ...item,
+          receipt: {
+            id: `demo-receipt-${crypto.randomUUID()}`,
+            original_name: receipt.name,
+            size_bytes: receipt.size,
+            local_url: URL.createObjectURL(receipt),
+          },
+        } : item),
+        updatedAt: new Date().toISOString(),
+      }))
+      return
+    }
+    await attachMovementReceipt({ workspace: state.workspace, movementId: movement.id, receipt })
+    await load()
+  }, [load, state.workspace])
+
+  return { ...state, reload: load, addMovement, addReceipt, annulMovement }
 }
 
 function AppShell({ session, onLogout }) {
@@ -415,7 +462,7 @@ function NavItem({ children, ...props }) {
 }
 
 function HomePage() {
-  const { snapshot, updatedAt } = useOutletContext()
+  const { addReceipt, session, snapshot, updatedAt, workspace } = useOutletContext()
   const latestMonth = snapshot.monthly.at(-1)
   const recent = [...snapshot.movements].reverse().slice(0, 8)
 
@@ -437,14 +484,14 @@ function HomePage() {
           <div><p className={styles.eyebrow}>Actividad reciente</p><h2>Últimos movimientos</h2></div>
           <span className={styles.recordCount}>{snapshot.movements.length} registros</span>
         </div>
-        {recent.length ? <MovementsTable rows={recent} /> : <EmptyReportState text="Todavía no hay movimientos." />}
+        {recent.length ? <MovementsTable currentUserId={session.user.id} onAttachReceipt={addReceipt} rows={recent} workspace={workspace} /> : <EmptyReportState text="Todavía no hay movimientos." />}
       </section>
     </>
   )
 }
 
 function MovementPage() {
-  const { snapshot, workspace, addMovement, annulMovement } = useOutletContext()
+  const { addMovement, addReceipt, annulMovement, session, snapshot, workspace } = useOutletContext()
   const canWrite = workspace.role === 'admin' || workspace.role === 'operator'
   const [form, setForm] = useState({ type: 'Ingreso', concept: '', amount: '', occurredAt: toLocalDateTimeInput() })
   const [receipt, setReceipt] = useState(null)
@@ -550,17 +597,53 @@ function MovementPage() {
           <div><p className={styles.eyebrow}>Historial auditable</p><h2>Todos los movimientos</h2></div>
           <button className={styles.filterButton} onClick={() => downloadMovementsCsv(rows)} type="button">Descargar CSV</button>
         </div>
-        {rows.length ? <AuditMovementsTable rows={rows} role={workspace.role} onAnnul={setAnnulling} /> : <EmptyReportState text="Todavía no hay movimientos." />}
+        {rows.length ? <AuditMovementsTable currentUserId={session.user.id} onAnnul={setAnnulling} onAttachReceipt={addReceipt} rows={rows} workspace={workspace} /> : <EmptyReportState text="Todavía no hay movimientos." />}
       </section>
     </>
   )
 }
 
-function AuditMovementsTable({ rows, role, onAnnul }) {
+function AuditMovementsTable({ currentUserId, onAnnul, onAttachReceipt, rows, workspace }) {
   const reversedIds = new Set(rows.map((row) => row.reversalOf).filter(Boolean))
-  const [receiptError, setReceiptError] = useState('')
+
+  return (
+    <div className={styles.auditList}>
+      {rows.map((row) => {
+        const isReversed = reversedIds.has(row.id)
+        return (
+          <article className={styles.auditCard} key={row.id}>
+            <div className={styles.auditMain}>
+              <div><TypeBadge type={row.type} />{row.reversalOf ? <span className={styles.auditFlag}>Contramovimiento</span> : null}{isReversed ? <span className={styles.auditFlag}>Anulado</span> : null}</div>
+              <h3>{row.concept}</h3>
+              <p>Efectivo: {formatDateTime(row.occurredAt)} · Registrado: {formatDateTime(row.createdAt)}</p>
+              <p>Usuario: {row.createdByLabel}</p>
+              {row.reversalReason ? <p>Motivo: {row.reversalReason}</p> : null}
+            </div>
+            <div className={styles.auditAside}>
+              <strong className={row.type === 'Egreso' ? styles.negativeText : styles.positiveText}>{formatCurrency(row.amount)}</strong>
+              <ReceiptAction currentUserId={currentUserId} movement={row} onAttach={onAttachReceipt} workspace={workspace} />
+              {workspace.role === 'admin' && row.type !== 'Apertura' && !row.reversalOf && !isReversed ? <button className={styles.inlineDangerButton} onClick={() => onAnnul(row)} type="button">Anular</button> : null}
+            </div>
+          </article>
+        )
+      })}
+    </div>
+  )
+}
+
+function canAttachReceipt(movement, workspace, currentUserId) {
+  if (movement.receipt || movement.type === 'Apertura') return false
+  if (workspace.role === 'admin') return true
+  return workspace.role === 'operator' && movement.createdBy === currentUserId
+}
+
+function ReceiptAction({ currentUserId, movement, onAttach, workspace }) {
+  const inputRef = useRef(null)
+  const [status, setStatus] = useState('idle')
+  const [message, setMessage] = useState('')
   const [receiptPreview, setReceiptPreview] = useState(null)
-  const [openingReceiptId, setOpeningReceiptId] = useState('')
+  const canAttach = canAttachReceipt(movement, workspace, currentUserId)
+  const dialogTitleId = `receipt-preview-${movement.id}`
 
   useEffect(() => {
     if (!receiptPreview) return undefined
@@ -571,61 +654,76 @@ function AuditMovementsTable({ rows, role, onAnnul }) {
     return () => document.removeEventListener('keydown', closeOnEscape)
   }, [receiptPreview])
 
-  async function openReceipt(receipt) {
-    setReceiptError('')
-
-    if (receipt?.local_url) {
-      setReceiptPreview({ url: receipt.local_url, name: receipt.original_name || 'Comprobante' })
+  async function openReceipt() {
+    setMessage('')
+    if (movement.receipt?.local_url) {
+      setReceiptPreview({ url: movement.receipt.local_url, name: movement.receipt.original_name || 'Comprobante' })
+      return
+    }
+    if (!movement.receipt?.storage_path) {
+      setMessage('No se encontró el archivo del comprobante.')
       return
     }
 
-    if (!receipt?.storage_path) {
-      setReceiptError('No se encontró el archivo del comprobante.')
-      return
-    }
-
-    setOpeningReceiptId(receipt.id)
+    setStatus('opening')
     try {
-      const url = await createReceiptSignedUrl(receipt.storage_path)
-      setReceiptPreview({ url, name: receipt.original_name || 'Comprobante' })
+      const url = await createReceiptSignedUrl(movement.receipt.storage_path)
+      setReceiptPreview({ url, name: movement.receipt.original_name || 'Comprobante' })
     } catch (error) {
-      setReceiptError(error.message)
+      setMessage(error.message)
     } finally {
-      setOpeningReceiptId('')
+      setStatus('idle')
+    }
+  }
+
+  async function uploadReceipt(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setStatus('uploading')
+    setMessage('')
+    try {
+      const compressedReceipt = await compressReceipt(file)
+      await onAttach(movement, compressedReceipt)
+      setMessage(`Comprobante adjuntado (${formatFileSize(compressedReceipt.size)}).`)
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setStatus('idle')
     }
   }
 
   return (
-    <>
-      {receiptError ? <p className={styles.inlineError} role="alert">{receiptError}</p> : null}
-      <div className={styles.auditList}>
-        {rows.map((row) => {
-          const isReversed = reversedIds.has(row.id)
-          return (
-            <article className={styles.auditCard} key={row.id}>
-              <div className={styles.auditMain}>
-                <div><TypeBadge type={row.type} />{row.reversalOf ? <span className={styles.auditFlag}>Contramovimiento</span> : null}{isReversed ? <span className={styles.auditFlag}>Anulado</span> : null}</div>
-                <h3>{row.concept}</h3>
-                <p>Efectivo: {formatDateTime(row.occurredAt)} · Registrado: {formatDateTime(row.createdAt)}</p>
-                <p>Usuario: {row.createdByLabel}</p>
-                {row.reversalReason ? <p>Motivo: {row.reversalReason}</p> : null}
-              </div>
-              <div className={styles.auditAside}>
-                <strong className={row.type === 'Egreso' ? styles.negativeText : styles.positiveText}>{formatCurrency(row.amount)}</strong>
-                {row.receipt ? <button className={styles.inlineButton} disabled={openingReceiptId === row.receipt.id} onClick={() => openReceipt(row.receipt)} type="button">{openingReceiptId === row.receipt.id ? 'Abriendo…' : 'Ver comprobante'}</button> : null}
-                {role === 'admin' && row.type !== 'Apertura' && !row.reversalOf && !isReversed ? <button className={styles.inlineDangerButton} onClick={() => onAnnul(row)} type="button">Anular</button> : null}
-              </div>
-            </article>
-          )
-        })}
-      </div>
+    <div className={styles.receiptAction}>
+      {movement.receipt ? (
+        <button className={styles.inlineButton} disabled={status === 'opening'} onClick={openReceipt} type="button">
+          {status === 'opening' ? 'Abriendo…' : 'Ver comprobante'}
+        </button>
+      ) : canAttach ? (
+        <>
+          <input
+            accept="image/*"
+            aria-label={`Seleccionar comprobante para ${movement.concept}`}
+            capture="environment"
+            hidden
+            onChange={uploadReceipt}
+            ref={inputRef}
+            type="file"
+          />
+          <button className={styles.inlineButton} disabled={status === 'uploading'} onClick={() => inputRef.current?.click()} type="button">
+            {status === 'uploading' ? 'Subiendo…' : 'Adjuntar comprobante'}
+          </button>
+        </>
+      ) : <span className={styles.noReceipt}>Sin comprobante</span>}
+      {message ? <small className={message.startsWith('Comprobante adjuntado') ? styles.receiptSuccess : styles.receiptError} role={message.startsWith('Comprobante adjuntado') ? 'status' : 'alert'}>{message}</small> : null}
       {receiptPreview ? (
         <div className={styles.receiptBackdrop} onClick={(event) => { if (event.target === event.currentTarget) setReceiptPreview(null) }} role="presentation">
-          <section aria-labelledby="receipt-preview-title" aria-modal="true" className={styles.receiptDialog} role="dialog">
+          <section aria-labelledby={dialogTitleId} aria-modal="true" className={styles.receiptDialog} role="dialog">
             <header>
               <div>
                 <p className={styles.eyebrow}>Comprobante</p>
-                <h2 id="receipt-preview-title">{receiptPreview.name}</h2>
+                <h2 id={dialogTitleId}>{receiptPreview.name}</h2>
               </div>
               <button aria-label="Cerrar comprobante" className={styles.dialogCloseButton} onClick={() => setReceiptPreview(null)} type="button">×</button>
             </header>
@@ -635,7 +733,7 @@ function AuditMovementsTable({ rows, role, onAnnul }) {
           </section>
         </div>
       ) : null}
-    </>
+    </div>
   )
 }
 
@@ -728,7 +826,7 @@ function AdminUsersPage() {
 }
 
 function ReportPage({ type }) {
-  const { snapshot } = useOutletContext()
+  const { addReceipt, session, snapshot, workspace } = useOutletContext()
   const [dateRange, setDateRange] = useState(currentMonthRange)
   const config = {
     daily: { eyebrow: 'Detalle diario', title: 'Reporte diario', description: 'Ingresos, egresos y saldo por fecha.', rows: snapshot.daily },
@@ -749,7 +847,7 @@ function ReportPage({ type }) {
       <PageHeading eyebrow={config.eyebrow} title={config.title} description={config.description} balance={type === 'daily' ? snapshot.currentBalance : null} />
       {type === 'daily' ? <DateRangeFilter dateRange={dateRange} invalidRange={invalidRange} resultCount={visibleRows.length} onChange={setDateRange} onCurrentMonth={() => setDateRange(currentMonthRange())} onShowAll={showAllDates} onClear={() => setDateRange({ from: '', to: '' })} /> : null}
       <section className={styles.panel}>
-        {invalidRange ? <EmptyReportState text="La fecha inicial no puede ser posterior a la fecha final." /> : visibleRows.length ? <ReportTable rows={visibleRows} type={type} movements={snapshot.movements} /> : <EmptyReportState text="No hay movimientos en el rango seleccionado." />}
+        {invalidRange ? <EmptyReportState text="La fecha inicial no puede ser posterior a la fecha final." /> : visibleRows.length ? <ReportTable currentUserId={session.user.id} movements={snapshot.movements} onAttachReceipt={addReceipt} rows={visibleRows} type={type} workspace={workspace} /> : <EmptyReportState text="No hay movimientos en el rango seleccionado." />}
       </section>
     </>
   )
@@ -796,27 +894,27 @@ function MetricCard({ label, value, tone = 'neutral' }) {
   return <article className={`${styles.metricCard} ${styles[`metric_${tone}`]}`}><p>{label}</p><strong>{value}</strong></article>
 }
 
-function MovementsTable({ rows }) {
+function MovementsTable({ currentUserId, onAttachReceipt, rows, workspace }) {
   return (
     <>
-      <div className={styles.desktopTable}><div className={styles.tableScroller}><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th>Usuario</th><th className={styles.numeric}>Importe</th><th className={styles.numeric}>Saldo</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{formatDate(row.date)}</td><td>{row.concept}</td><td><TypeBadge type={row.type} /></td><td>{row.createdByLabel || '—'}</td><td className={styles.numeric}>{formatCurrency(row.amount)}</td><td className={styles.numeric}>{formatCurrency(row.balance)}</td></tr>)}</tbody></table></div></div>
-      <div className={styles.mobileCards} aria-label="Últimos movimientos">{rows.map((row) => <article className={styles.movementCard} key={row.id}><header className={styles.mobileCardHeader}><div><time dateTime={row.date}>{formatDate(row.date)}</time><h3>{row.concept}</h3><small>{row.createdByLabel}</small></div><TypeBadge type={row.type} /></header><dl className={styles.cardMetrics}><CardMetric label="Importe" value={formatCurrency(row.amount)} tone={row.type === 'Ingreso' ? 'positive' : row.type === 'Egreso' ? 'negative' : 'neutral'} /><CardMetric label="Saldo" value={formatCurrency(row.balance)} emphasized /></dl></article>)}</div>
+      <div className={styles.desktopTable}><div className={styles.tableScroller}><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th>Usuario</th><th className={styles.numeric}>Importe</th><th className={styles.numeric}>Saldo</th><th>Comprobante</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id}><td>{formatDate(row.date)}</td><td>{row.concept}</td><td><TypeBadge type={row.type} /></td><td>{row.createdByLabel || '—'}</td><td className={styles.numeric}>{formatCurrency(row.amount)}</td><td className={styles.numeric}>{formatCurrency(row.balance)}</td><td><ReceiptAction currentUserId={currentUserId} movement={row} onAttach={onAttachReceipt} workspace={workspace} /></td></tr>)}</tbody></table></div></div>
+      <div className={styles.mobileCards} aria-label="Últimos movimientos">{rows.map((row) => <article className={styles.movementCard} key={row.id}><header className={styles.mobileCardHeader}><div><time dateTime={row.date}>{formatDate(row.date)}</time><h3>{row.concept}</h3><small>{row.createdByLabel}</small></div><TypeBadge type={row.type} /></header><dl className={styles.cardMetrics}><CardMetric label="Importe" value={formatCurrency(row.amount)} tone={row.type === 'Ingreso' ? 'positive' : row.type === 'Egreso' ? 'negative' : 'neutral'} /><CardMetric label="Saldo" value={formatCurrency(row.balance)} emphasized /></dl><div className={styles.mobileReceiptAction}><ReceiptAction currentUserId={currentUserId} movement={row} onAttach={onAttachReceipt} workspace={workspace} /></div></article>)}</div>
     </>
   )
 }
 
-function ReportTable({ rows, type, movements }) {
+function ReportTable({ currentUserId, rows, type, movements, onAttachReceipt, workspace }) {
   const movementsByDay = type === 'daily' ? movements.reduce((groups, movement) => { const daily = groups.get(movement.date) || []; daily.push(movement); groups.set(movement.date, daily); return groups }, new Map()) : new Map()
   return (
     <>
-      <div className={styles.desktopTable}><div className={styles.tableScroller}><table><thead><tr><th>Periodo</th>{type === 'daily' ? <th>Detalle del día</th> : null}<th className={styles.numeric}>Saldo inicial</th><th className={styles.numeric}>Ingresos</th><th className={styles.numeric}>Egresos</th><th className={styles.numeric}>Flujo neto</th><th className={styles.numeric}>Saldo final</th></tr></thead><tbody>{rows.map((row) => <tr key={row.key}><td className={styles.periodCell}>{formatPeriod(row.key, type)}</td>{type === 'daily' ? <td className={styles.detailsCell}><DailyMovementList movements={movementsByDay.get(row.key) || []} /></td> : null}<td className={styles.numeric}>{formatCurrency(row.opening)}</td><td className={`${styles.numeric} ${styles.positiveText}`}>{formatCurrency(row.income)}</td><td className={styles.numeric}>{formatCurrency(row.expense)}</td><td className={`${styles.numeric} ${row.net < 0 ? styles.negativeText : ''}`}>{formatCurrency(row.net)}</td><td className={`${styles.numeric} ${styles.balanceCell}`}>{formatCurrency(row.closing)}</td></tr>)}</tbody></table></div></div>
-      <div className={styles.mobileCards} aria-label={`Reporte ${type}`}>{rows.map((row) => <article className={styles.reportCard} key={row.key}><header className={styles.reportCardHeader}><p>{type === 'daily' ? 'Día' : type === 'monthly' ? 'Mes' : 'Año'}</p><h3>{formatPeriod(row.key, type)}</h3></header>{type === 'daily' ? <section className={styles.mobileDetail}><h4>Detalle del día</h4><DailyMovementList movements={movementsByDay.get(row.key) || []} /></section> : null}<dl className={styles.cardMetrics}><CardMetric label="Saldo inicial" value={formatCurrency(row.opening)} /><CardMetric label="Ingresos" value={formatCurrency(row.income)} tone="positive" /><CardMetric label="Egresos" value={formatCurrency(row.expense)} tone="negative" /><CardMetric label="Flujo neto" value={formatCurrency(row.net)} tone={row.net < 0 ? 'negative' : 'neutral'} /><CardMetric label="Saldo final" value={formatCurrency(row.closing)} emphasized wide /></dl></article>)}</div>
+      <div className={styles.desktopTable}><div className={styles.tableScroller}><table><thead><tr><th>Periodo</th>{type === 'daily' ? <th>Detalle del día</th> : null}<th className={styles.numeric}>Saldo inicial</th><th className={styles.numeric}>Ingresos</th><th className={styles.numeric}>Egresos</th><th className={styles.numeric}>Flujo neto</th><th className={styles.numeric}>Saldo final</th></tr></thead><tbody>{rows.map((row) => <tr key={row.key}><td className={styles.periodCell}>{formatPeriod(row.key, type)}</td>{type === 'daily' ? <td className={styles.detailsCell}><DailyMovementList currentUserId={currentUserId} movements={movementsByDay.get(row.key) || []} onAttachReceipt={onAttachReceipt} workspace={workspace} /></td> : null}<td className={styles.numeric}>{formatCurrency(row.opening)}</td><td className={`${styles.numeric} ${styles.positiveText}`}>{formatCurrency(row.income)}</td><td className={styles.numeric}>{formatCurrency(row.expense)}</td><td className={`${styles.numeric} ${row.net < 0 ? styles.negativeText : ''}`}>{formatCurrency(row.net)}</td><td className={`${styles.numeric} ${styles.balanceCell}`}>{formatCurrency(row.closing)}</td></tr>)}</tbody></table></div></div>
+      <div className={styles.mobileCards} aria-label={`Reporte ${type}`}>{rows.map((row) => <article className={styles.reportCard} key={row.key}><header className={styles.reportCardHeader}><p>{type === 'daily' ? 'Día' : type === 'monthly' ? 'Mes' : 'Año'}</p><h3>{formatPeriod(row.key, type)}</h3></header>{type === 'daily' ? <section className={styles.mobileDetail}><h4>Detalle del día</h4><DailyMovementList currentUserId={currentUserId} movements={movementsByDay.get(row.key) || []} onAttachReceipt={onAttachReceipt} workspace={workspace} /></section> : null}<dl className={styles.cardMetrics}><CardMetric label="Saldo inicial" value={formatCurrency(row.opening)} /><CardMetric label="Ingresos" value={formatCurrency(row.income)} tone="positive" /><CardMetric label="Egresos" value={formatCurrency(row.expense)} tone="negative" /><CardMetric label="Flujo neto" value={formatCurrency(row.net)} tone={row.net < 0 ? 'negative' : 'neutral'} /><CardMetric label="Saldo final" value={formatCurrency(row.closing)} emphasized wide /></dl></article>)}</div>
     </>
   )
 }
 
-function DailyMovementList({ movements }) {
-  return <ul className={styles.dailyDetailList}>{movements.map((movement) => <li className={styles.dailyDetailItem} key={movement.id}><span className={styles.dailyDetailConcept}>{movement.concept}</span><TypeBadge type={movement.type} /><span className={styles.dailyDetailAmount}>{formatCurrency(movement.amount)}</span></li>)}</ul>
+function DailyMovementList({ currentUserId, movements, onAttachReceipt, workspace }) {
+  return <ul className={styles.dailyDetailList}>{movements.map((movement) => <li className={styles.dailyDetailItem} key={movement.id}><span className={styles.dailyDetailConcept}>{movement.concept}</span><TypeBadge type={movement.type} /><span className={styles.dailyDetailAmount}>{formatCurrency(movement.amount)}</span><ReceiptAction currentUserId={currentUserId} movement={movement} onAttach={onAttachReceipt} workspace={workspace} /></li>)}</ul>
 }
 
 function CardMetric({ label, value, tone = 'neutral', emphasized = false, wide = false }) {

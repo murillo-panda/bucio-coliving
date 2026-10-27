@@ -112,28 +112,34 @@ export async function createMovement({ workspace, type, concept, amount, occurre
   throwIfError(movementResult.error)
 
   if (receipt) {
-    const now = new Date()
-    const year = String(now.getUTCFullYear())
-    const month = String(now.getUTCMonth() + 1).padStart(2, '0')
-    const extension = receipt.type === 'image/webp' ? 'webp' : 'jpg'
-    const storagePath = `${workspace.organization.id}/${year}/${month}/${movementResult.data.id}-${crypto.randomUUID()}.${extension}`
-    const uploadResult = await client.storage
-      .from('receipts')
-      .upload(storagePath, receipt, { contentType: receipt.type, upsert: false })
-    throwIfError(uploadResult.error)
-
-    const receiptResult = await client.from('movement_receipts').insert({
-      organization_id: workspace.organization.id,
-      movement_id: movementResult.data.id,
-      storage_path: storagePath,
-      original_name: receipt.name || 'comprobante.webp',
-      content_type: receipt.type,
-      size_bytes: receipt.size,
-    })
-    throwIfError(receiptResult.error)
+    await attachMovementReceipt({ workspace, movementId: movementResult.data.id, receipt })
   }
 
   return movementResult.data.id
+}
+
+export async function attachMovementReceipt({ workspace, movementId, receipt }) {
+  const client = requireSupabase()
+  const now = new Date()
+  const year = String(now.getUTCFullYear())
+  const month = String(now.getUTCMonth() + 1).padStart(2, '0')
+  const extension = receipt.type === 'image/webp' ? 'webp' : 'jpg'
+  const storagePath = `${workspace.organization.id}/${year}/${month}/${movementId}-${crypto.randomUUID()}.${extension}`
+  const uploadResult = await client.storage
+    .from('receipts')
+    .upload(storagePath, receipt, { contentType: receipt.type, upsert: false })
+  throwIfError(uploadResult.error)
+
+  const receiptResult = await client.from('movement_receipts').insert({
+    organization_id: workspace.organization.id,
+    movement_id: movementId,
+    storage_path: storagePath,
+    original_name: receipt.name || 'comprobante.webp',
+    content_type: receipt.type,
+    size_bytes: receipt.size,
+  })
+  throwIfError(receiptResult.error)
+  return receiptResult.data
 }
 
 export async function reverseMovement(movementId, reason) {

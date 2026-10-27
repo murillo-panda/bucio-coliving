@@ -557,6 +557,11 @@
   font-weight: 700;
 }
 
+.dailyDetailItem > .receiptAction {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
 .positiveText {
   color: var(--green-700);
 }
@@ -643,6 +648,15 @@
   font-weight: 750;
 }
 
+.passwordField {
+  display: grid;
+  gap: 8px;
+}
+
+.passwordField > label {
+  display: block;
+}
+
 .loginForm input {
   width: 100%;
   min-height: 48px;
@@ -655,6 +669,46 @@
 
 .loginForm input:focus {
   border-color: var(--blue-600);
+}
+
+.passwordInput {
+  position: relative;
+  display: block;
+}
+
+.loginForm .passwordInput input {
+  padding-right: 54px;
+}
+
+.passwordToggle {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  color: var(--slate-500);
+  background: transparent;
+  cursor: pointer;
+}
+
+.passwordToggle:hover,
+.passwordToggle:focus-visible {
+  color: var(--blue-700);
+  background: var(--blue-50);
+}
+
+.passwordToggle svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .formError {
@@ -953,6 +1007,41 @@
 .inlineButton {
   color: var(--blue-700);
   background: var(--blue-50);
+}
+
+.inlineButton:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.receiptAction {
+  display: inline-grid;
+  gap: 5px;
+  justify-items: start;
+  white-space: normal;
+}
+
+.receiptAction small {
+  max-width: 220px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.receiptSuccess {
+  color: var(--green-700);
+}
+
+.receiptError {
+  color: var(--red-700);
+}
+
+.noReceipt {
+  color: var(--slate-500);
+  font-size: 0.78rem;
+}
+
+.mobileReceiptAction {
+  padding: 0 17px 17px;
 }
 
 .auditList,
