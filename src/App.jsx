@@ -621,11 +621,13 @@ function AuditMovementsTable({ currentUserId, onAnnul, onAttachReceipt, rows, wo
               <h3>{row.concept}</h3>
               <p>Efectivo: {formatDateTime(row.occurredAt)} · Registrado: {formatDateTime(row.createdAt)}</p>
               <p>Usuario: {row.createdByLabel}</p>
+              <div className={styles.auditReceiptLine}>
+                <ReceiptAction appearance="link" currentUserId={currentUserId} movement={row} onAttach={onAttachReceipt} workspace={workspace} />
+              </div>
               {row.reversalReason ? <p>Motivo: {row.reversalReason}</p> : null}
             </div>
             <div className={styles.auditAside}>
               <strong className={row.type === 'Egreso' ? styles.negativeText : styles.positiveText}>{formatCurrency(row.amount)}</strong>
-              <ReceiptAction currentUserId={currentUserId} movement={row} onAttach={onAttachReceipt} workspace={workspace} />
               {workspace.role === 'admin' && row.type !== 'Apertura' && !row.reversalOf && !isReversed ? <button className={styles.inlineDangerButton} onClick={() => onAnnul(row)} type="button">Anular</button> : null}
             </div>
           </article>
@@ -641,12 +643,13 @@ function canAttachReceipt(movement, workspace, currentUserId) {
   return workspace.role === 'operator' && movement.createdBy === currentUserId
 }
 
-function ReceiptAction({ currentUserId, movement, onAttach, workspace }) {
+function ReceiptAction({ appearance = 'button', currentUserId, movement, onAttach, workspace }) {
   const [status, setStatus] = useState('idle')
   const [message, setMessage] = useState('')
   const [receiptPreview, setReceiptPreview] = useState(null)
   const canAttach = canAttachReceipt(movement, workspace, currentUserId)
   const dialogTitleId = `receipt-preview-${movement.id}`
+  const actionClassName = appearance === 'link' ? styles.receiptLinkButton : styles.inlineButton
 
   useEffect(() => {
     if (!receiptPreview) return undefined
@@ -696,20 +699,20 @@ function ReceiptAction({ currentUserId, movement, onAttach, workspace }) {
   return (
     <div className={styles.receiptAction}>
       {movement.receipt ? (
-        <button className={styles.inlineButton} disabled={status === 'opening'} onClick={openReceipt} type="button">
-          {status === 'opening' ? 'Abriendo…' : 'Ver comprobante'}
+        <button className={actionClassName} disabled={status === 'opening'} onClick={openReceipt} type="button">
+          {status === 'opening' ? 'Abriendo…' : 'Ver recibo'}
         </button>
       ) : canAttach ? (
         <>
           <ReceiptPicker
-            compact
+            buttonClassName={actionClassName}
             disabled={status === 'uploading'}
-            label={`comprobante para ${movement.concept}`}
+            label={`recibo para ${movement.concept}`}
             onSelect={uploadReceipt}
           />
           {status === 'uploading' ? <small className={styles.receiptProgress} role="status">Comprimiendo y subiendo…</small> : null}
         </>
-      ) : <span className={styles.noReceipt}>Sin comprobante</span>}
+      ) : <span className={styles.noReceipt}>Sin recibo</span>}
       {message ? <small className={message.startsWith('Comprobante adjuntado') ? styles.receiptSuccess : styles.receiptError} role={message.startsWith('Comprobante adjuntado') ? 'status' : 'alert'}>{message}</small> : null}
       {receiptPreview ? (
         <div className={styles.receiptBackdrop} onClick={(event) => { if (event.target === event.currentTarget) setReceiptPreview(null) }} role="presentation">
@@ -731,18 +734,32 @@ function ReceiptAction({ currentUserId, movement, onAttach, workspace }) {
   )
 }
 
-function ReceiptPicker({ compact = false, disabled = false, label = 'comprobante', onSelect, selectedFile = null }) {
+function ReceiptPicker({ buttonClassName = styles.receiptPickerButton, disabled = false, label = 'recibo', onSelect, selectedFile = null }) {
   const cameraInputRef = useRef(null)
   const galleryInputRef = useRef(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const dialogTitleId = useId()
+
+  useEffect(() => {
+    if (!dialogOpen) return undefined
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') setDialogOpen(false)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [dialogOpen])
 
   function selectFile(event) {
     const file = event.target.files?.[0] || null
     event.target.value = ''
-    if (file) onSelect(file)
+    if (file) {
+      onSelect(file)
+      setDialogOpen(false)
+    }
   }
 
   return (
-    <div className={`${styles.receiptPicker} ${compact ? styles.receiptPickerCompact : ''}`}>
+    <div className={styles.receiptPicker}>
       <input
         accept="image/*"
         aria-label={`Tomar foto del ${label}`}
@@ -760,15 +777,36 @@ function ReceiptPicker({ compact = false, disabled = false, label = 'comprobante
         ref={galleryInputRef}
         type="file"
       />
-      <div className={styles.receiptPickerButtons}>
-        <button className={compact ? styles.inlineButton : styles.receiptPickerButton} disabled={disabled} onClick={() => cameraInputRef.current?.click()} type="button">
-          Tomar foto
-        </button>
-        <button className={compact ? styles.inlineButton : styles.receiptPickerButton} disabled={disabled} onClick={() => galleryInputRef.current?.click()} type="button">
-          Elegir de la galería
-        </button>
-      </div>
+      <button aria-haspopup="dialog" className={buttonClassName} disabled={disabled} onClick={() => setDialogOpen(true)} type="button">
+        {selectedFile ? 'Cambiar recibo' : 'Agregar recibo'}
+      </button>
       {selectedFile ? <span className={styles.receiptFileName}>Seleccionado: {selectedFile.name}</span> : null}
+      {dialogOpen ? (
+        <div className={styles.receiptBackdrop} onClick={(event) => { if (event.target === event.currentTarget) setDialogOpen(false) }} role="presentation">
+          <section aria-labelledby={dialogTitleId} aria-modal="true" className={`${styles.receiptDialog} ${styles.receiptSourceDialog}`} role="dialog">
+            <header>
+              <div>
+                <p className={styles.eyebrow}>Comprobante</p>
+                <h2 id={dialogTitleId}>Agregar recibo</h2>
+              </div>
+              <button aria-label="Cerrar opciones de recibo" className={styles.dialogCloseButton} onClick={() => setDialogOpen(false)} type="button">×</button>
+            </header>
+            <div className={styles.receiptSourceBody}>
+              <p>Selecciona cómo quieres añadir la imagen del recibo.</p>
+              <div className={styles.receiptSourceOptions}>
+                <button className={styles.receiptSourceOption} onClick={() => cameraInputRef.current?.click()} type="button">
+                  <strong>Usar cámara</strong>
+                  <span>Fotografía el recibo ahora.</span>
+                </button>
+                <button className={styles.receiptSourceOption} onClick={() => galleryInputRef.current?.click()} type="button">
+                  <strong>Abrir galería</strong>
+                  <span>Selecciona una imagen existente.</span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -7,6 +7,8 @@
     "dev": "VITE_AUTH_MODE=demo VITE_DATA_SOURCE=demo vite",
     "dev:demo": "VITE_AUTH_MODE=demo VITE_DATA_SOURCE=demo vite",
     "dev:supabase": "vite",
+    "dev:mobile": "VITE_AUTH_MODE=demo VITE_DATA_SOURCE=demo vite --host 0.0.0.0",
+    "dev:mobile:supabase": "vite --host 0.0.0.0",
     "build": "vite build",
     "lint": "oxlint",
     "test": "vitest run",

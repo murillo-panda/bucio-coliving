@@ -15,6 +15,7 @@ dist-ssr
 .env.*
 !.env.example
 .netlify
+supabase/.temp/
 
 # Editor directories and files
 .vscode/*
