@@ -51,6 +51,15 @@
   gap: 8px;
 }
 
+.userIdentity {
+  max-width: 220px;
+  overflow: hidden;
+  color: #b9cad9;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .primaryButton,
 .secondaryButton,
 .textButton {
@@ -689,6 +698,213 @@
   color: var(--slate-700);
 }
 
+.formPanel {
+  margin-bottom: 20px;
+}
+
+.movementForm,
+.userForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  padding: 22px 24px 26px;
+}
+
+.userForm {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: end;
+}
+
+.movementForm label,
+.userForm label,
+.annulPanel label,
+.userCard label {
+  display: grid;
+  gap: 7px;
+  color: var(--navy-950);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+
+.movementForm input,
+.movementForm select,
+.userForm input,
+.userForm select,
+.annulPanel textarea,
+.userCard select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--slate-300);
+  border-radius: 10px;
+  padding: 9px 12px;
+  color: var(--navy-950);
+  background: var(--white);
+}
+
+.movementForm input[type='file'] {
+  padding: 8px;
+}
+
+.movementForm small {
+  color: var(--slate-500);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
+}
+
+.formActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.successMessage {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border: 1px solid #b8e2cf;
+  border-radius: 10px;
+  color: var(--green-700);
+  background: var(--green-100);
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
+.annulPanel {
+  margin-bottom: 20px;
+  padding: 22px 24px;
+  border-color: #efcaca;
+}
+
+.annulPanel form {
+  max-width: 680px;
+}
+
+.annulPanel h2 {
+  margin: 0 0 8px;
+  color: var(--navy-950);
+  font-size: 1.2rem;
+}
+
+.annulPanel p {
+  color: var(--slate-500);
+  line-height: 1.5;
+}
+
+.annulPanel textarea {
+  min-height: 96px;
+  margin-bottom: 14px;
+  resize: vertical;
+}
+
+.dangerButton,
+.inlineDangerButton,
+.inlineButton {
+  min-height: 40px;
+  border: 0;
+  border-radius: 9px;
+  padding: 0 13px;
+  cursor: pointer;
+  font-weight: 750;
+}
+
+.dangerButton,
+.inlineDangerButton {
+  color: var(--red-700);
+  background: var(--red-100);
+}
+
+.dangerButton {
+  min-height: 44px;
+}
+
+.inlineButton {
+  color: var(--blue-700);
+  background: var(--blue-50);
+}
+
+.auditList,
+.userList {
+  display: grid;
+}
+
+.auditCard,
+.userCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 22px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--slate-100);
+}
+
+.auditCard:last-child,
+.userCard:last-child {
+  border-bottom: 0;
+}
+
+.auditMain h3,
+.userCard h3 {
+  margin: 8px 0 6px;
+  color: var(--navy-950);
+  font-size: 1rem;
+}
+
+.auditMain p,
+.userCard p {
+  margin: 3px 0 0;
+  color: var(--slate-500);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.auditAside {
+  display: grid;
+  min-width: 150px;
+  justify-items: end;
+  gap: 8px;
+}
+
+.auditAside > strong {
+  font-size: 1.06rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.auditFlag {
+  display: inline-flex;
+  min-height: 27px;
+  align-items: center;
+  margin-left: 7px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  color: var(--slate-700);
+  background: var(--slate-100);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.userCard {
+  grid-template-columns: minmax(220px, 1fr) 180px auto;
+}
+
+.userCard h3 {
+  margin-top: 0;
+}
+
+.toggleLabel {
+  display: flex !important;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.toggleLabel input {
+  width: 20px;
+  height: 20px;
+}
+
 @media (max-width: 900px) {
   .metricsGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -701,6 +917,14 @@
 
   .dateFilterActions {
     align-items: center;
+  }
+
+  .userForm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .userForm .primaryButton {
+    width: max-content;
   }
 }
 
@@ -893,7 +1117,8 @@
   }
 
   .brand small,
-  .secondaryButton {
+  .secondaryButton,
+  .userIdentity {
     display: none;
   }
 
@@ -970,6 +1195,43 @@
   .filterChevron {
     grid-column: 2;
     grid-row: 1 / span 2;
+  }
+
+  .movementForm,
+  .userForm {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+
+  .fieldWide {
+    grid-column: auto;
+  }
+
+  .movementForm .primaryButton,
+  .userForm .primaryButton {
+    width: 100%;
+  }
+
+  .auditCard,
+  .userCard {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 18px;
+  }
+
+  .auditAside {
+    grid-template-columns: 1fr auto auto;
+    min-width: 0;
+    align-items: center;
+    justify-items: start;
+  }
+
+  .auditAside > strong {
+    margin-right: auto;
+  }
+
+  .userCard label {
+    width: 100%;
   }
 }
 

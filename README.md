@@ -1,62 +1,97 @@
-# Control de caja del hostel
+# Boilerplate de gestión de caja
 
-Aplicación React para consultar el saldo y los reportes diario, mensual y anual de una caja alojada en Google Sheets. Está preparada para publicarse en Netlify y leer una pestaña publicada como CSV.
+Aplicación React + Vite preparada para reutilizarse en distintos negocios cambiando solamente variables de entorno y los dos archivos de marca. Incluye Supabase Auth, PostgreSQL, Storage privado, Netlify Functions, tres roles, auditoría e importación desde Google Sheets.
 
-## Probar en local
+## Funcionalidad incluida
+
+- login por correo y contraseña;
+- roles `admin`, `operator` y `viewer`;
+- una caja por organización en esta primera versión;
+- ingresos y egresos con fecha/hora efectiva elegible;
+- fecha/hora real de creación y usuario responsable;
+- un comprobante opcional por movimiento, convertido a WebP y comprimido en el navegador;
+- movimientos inmutables: no se editan ni eliminan;
+- anulación exclusiva de administradores mediante contramovimiento y motivo obligatorio;
+- reportes diario, mensual y anual;
+- exportación manual en CSV;
+- invitaciones y gestión de usuarios;
+- importador idempotente del histórico publicado en Google Sheets.
+
+## Probar sin servicios externos
 
 ```bash
-npm install
-npm run dev
+yarn install
+yarn dev
 ```
 
-La vista local usa el CSV real configurado en `.env`. Usuario: `demo`. Contraseña: `demo`.
+Abre la URL de Vite e inicia sesión con `demo` / `demo`. Los cambios del modo demo viven en memoria y se borran al recargar.
 
-Para probar las pantallas con datos ficticios se puede ejecutar `npm run dev:demo`. La compilación publicada consulta `/api/cash-data`, que descarga el CSV actualizado desde una función de Netlify.
+## Crear el proyecto Supabase
 
-## Formato de Google Sheets
+1. Crea un proyecto gratuito en Supabase.
+2. Abre **SQL Editor**, copia y ejecuta `supabase/migrations/202610270001_initial_schema.sql`.
+3. En **Authentication > URL Configuration**, añade como URL del sitio tu dominio Netlify y permite `https://TU-SITIO.netlify.app/set-password` como redirect URL.
+4. Copia `.env.example` como `.env` y coloca la URL, `anon key` y `secret key` del proyecto. La clave `service_role` antigua también es compatible. `.env` está ignorado por Git.
+5. Prepara el primer administrador:
 
-Importa el Excel en Google Sheets y conserva una pestaña llamada `Caja` con estas cuatro columnas:
+```bash
+yarn bootstrap:admin
+```
 
-| Fecha | Concepto | Tipo | Importe |
-| --- | --- | --- | ---: |
-| 01/01/2026 | Saldo Inicial | Apertura | 310,00 |
-| 02/01/2026 | Reserva | Ingreso | 100,00 |
-| 03/01/2026 | Compra | Egreso | 40,00 |
+El correo recibirá una invitación para establecer su propia contraseña.
 
-`Saldo Inicial` se reconoce siempre como apertura y no se suma a los ingresos del periodo. Los tipos permitidos son `Apertura`, `Ingreso` y `Egreso`.
+## Importar Google Sheets
 
-## Conectar Google Sheets mediante CSV
+Publica la pestaña de caja como CSV con las columnas `Fecha`, `Concepto`, `Tipo` e `Importe`, configura `GOOGLE_SHEET_CSV_URL` y ejecuta:
 
-1. En Google Sheets, usa **Archivo > Compartir > Publicar en la web**.
-2. Selecciona la pestaña `Caja` y el formato **Valores separados por comas (.csv)**.
-3. Guarda la URL en `VITE_GOOGLE_SHEETS_CSV_URL` para la vista local y en `GOOGLE_SHEET_CSV_URL` para Netlify.
-4. Añade `APP_USERNAME`, `APP_PASSWORD` y un `SESSION_SECRET` largo en **Netlify > Site configuration > Environment variables**.
+```bash
+yarn import:sheets
+```
 
-Publicar como CSV hace que los datos sean accesibles para cualquiera que conozca la URL. El login protege la aplicación, pero no convierte el CSV publicado en privado. Para datos privados, el proyecto conserva como alternativa la conexión mediante Google Sheets API y cuenta de servicio.
+La importación se puede repetir: las filas ya importadas se omiten. Los movimientos históricos quedan con:
 
-## Publicar en Netlify
+- `occurred_at`: la fecha del registro original;
+- `created_at`: esa misma fecha, como se acordó;
+- usuario visible: `Migración inicial`;
+- `created_by`: vacío porque el usuario histórico no existe.
 
-Sube esta carpeta a un repositorio Git y crea un sitio desde ese repositorio en Netlify. `netlify.toml` ya configura:
+## Variables de Netlify
 
-- compilación con `npm run build`;
-- publicación desde `dist`;
-- funciones privadas para login y lectura de Google Sheets;
-- rutas de React compatibles con recargas directas.
+Configura en **Site configuration > Environment variables**:
 
-Publica el **repositorio completo** mediante la integración Git de Netlify o Netlify CLI. No subas solamente la carpeta `dist`: esa carpeta contiene la interfaz, pero no las funciones necesarias para el login. La configuración esperada es:
+- todas las variables `VITE_*` de `.env.example`;
+- `SUPABASE_URL`;
+- `SUPABASE_SECRET_KEY`;
+- `ORGANIZATION_SLUG`;
+- `SITE_URL`.
 
-- Build command: `npm run build`
-- Publish directory: `dist`
-- Functions directory: `netlify/functions`
+La `secret key` solo se usa dentro de la función protegida de administración de usuarios. Nunca debe tener el prefijo `VITE_`.
 
-La regla `public/_redirects` también se copia al build para que `/login`, `/diario`, `/mensual` y `/anual` carguen correctamente al abrirlas o recargarlas directamente.
+Netlify debe publicar el repositorio completo, no solo `dist`. `netlify.toml` ya define `yarn build`, `dist`, las Functions y el fallback de React Router.
 
-La aplicación consulta Google Sheets automáticamente después de iniciar sesión y cada vez que se recarga la página. Después de cambiar la hoja mientras la web ya está abierta, pulsa **Actualizar** para consultar los datos de nuevo sin recargar toda la página. Todas las respuestas se solicitan sin caché.
+## Reutilizar para otro cliente
+
+1. Copia el repositorio.
+2. Cambia las variables de marca/organización en `.env` y Netlify.
+3. Reemplaza `src/assets/brand-logo.png` y `src/assets/brand-mark.png`, conservando esos nombres.
+4. Crea un proyecto Supabase nuevo y ejecuta la misma migración.
+5. Ejecuta `yarn bootstrap:admin` con el correo del nuevo administrador.
+
+No hace falta modificar componentes, rutas, tablas ni reglas de permisos para cambiar el nombre del producto.
+
+## Seguridad y auditoría
+
+- Row Level Security limita cada consulta a miembros activos de la organización.
+- La interfaz pública usa solo la `anon key`.
+- Los comprobantes se guardan en el bucket privado `receipts`; se visualizan con enlaces firmados de 60 segundos.
+- No existen permisos SQL de actualización o borrado sobre movimientos.
+- Las anulaciones son transacciones nuevas que referencian el original.
+- El backend impide desactivar al último administrador activo.
 
 ## Comprobaciones
 
 ```bash
-npm run lint
-npm test
-npm run build
+yarn lint
+yarn test
+yarn build
 ```

@@ -1,18 +1,21 @@
 {
-  "name": "hostel-cash-dashboard",
+  "name": "cash-management-boilerplate",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "VITE_AUTH_MODE=demo vite",
+    "dev": "VITE_AUTH_MODE=demo VITE_DATA_SOURCE=demo vite",
     "dev:demo": "VITE_AUTH_MODE=demo VITE_DATA_SOURCE=demo vite",
-    "dev:sheets": "VITE_DATA_SOURCE=google-sheets npx netlify-cli dev",
+    "dev:supabase": "vite",
     "build": "vite build",
     "lint": "oxlint",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bootstrap:admin": "node --env-file=.env scripts/bootstrap-admin.mjs",
+    "import:sheets": "node --env-file=.env scripts/import-google-sheets.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.9.5"
@@ -23,7 +26,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "jsdom": "^27.0.1",
     "oxlint": "^1.88.0",
-    "vitest": "^4.0.4",
-    "vite": "^8.3.4"
+    "vite": "^8.3.4",
+    "vitest": "^4.0.4"
   }
 }

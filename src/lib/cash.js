@@ -1,3 +1,5 @@
+import { appConfig } from '../config/app.js'
+
 const validTypes = new Set(['Ingreso', 'Egreso', 'Apertura'])
 
 function roundMoney(value) {
@@ -21,6 +23,7 @@ function normalizeMovements(source) {
       const amount = Math.abs(Number(movement.amount))
 
       return {
+        ...movement,
         id: movement.id || `movement-${index}`,
         date: String(movement.date || '').slice(0, 10),
         concept: String(movement.concept || '').trim(),
@@ -109,22 +112,22 @@ export function sortRowsNewestFirst(rows) {
 }
 
 export function formatCurrency(value) {
-  return new Intl.NumberFormat('es-ES', {
+  return new Intl.NumberFormat(appConfig.locale, {
     style: 'currency',
-    currency: 'EUR',
+    currency: appConfig.currency,
   }).format(value || 0)
 }
 
 export function formatDate(value) {
   if (!value) return '—'
-  return new Intl.DateTimeFormat('es-ES').format(new Date(`${value}T12:00:00`))
+  return new Intl.DateTimeFormat(appConfig.locale).format(new Date(`${value}T12:00:00`))
 }
 
 export function formatPeriod(key, type) {
   if (type === 'annual') return key
   if (type === 'monthly') {
     const [year, month] = key.split('-').map(Number)
-    const label = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' })
+    const label = new Intl.DateTimeFormat(appConfig.locale, { month: 'long', year: 'numeric' })
       .format(new Date(year, month - 1, 1))
     return label.charAt(0).toUpperCase() + label.slice(1)
   }
