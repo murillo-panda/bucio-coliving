@@ -702,6 +702,60 @@
   margin-bottom: 20px;
 }
 
+.movementDisclosure {
+  overflow: hidden;
+}
+
+.movementSummary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  min-height: 72px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 24px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.movementSummary::-webkit-details-marker {
+  display: none;
+}
+
+.movementSummary:hover,
+.movementDisclosure[open] .movementSummary {
+  background: var(--blue-50);
+}
+
+.movementSummary:focus-visible {
+  outline: 3px solid rgba(40, 121, 187, 0.35);
+  outline-offset: -3px;
+}
+
+.movementSummary .eyebrow {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.movementSummary strong {
+  color: var(--navy-950);
+  font-size: 1.2rem;
+}
+
+.movementSummaryHint {
+  color: var(--slate-500);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.movementDisclosure[open] .filterChevron {
+  margin-bottom: -4px;
+  transform: rotate(225deg);
+}
+
+.movementDisclosure .movementForm {
+  border-top: 1px solid var(--slate-200);
+}
+
 .movementForm,
 .userForm {
   display: grid;
@@ -1193,6 +1247,22 @@
   }
 
   .filterChevron {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+
+  .movementSummary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    padding-inline: 18px;
+  }
+
+  .movementSummaryHint {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .movementSummary .filterChevron {
     grid-column: 2;
     grid-row: 1 / span 2;
   }

@@ -445,6 +445,7 @@ function MovementPage() {
   const [receipt, setReceipt] = useState(null)
   const [message, setMessage] = useState({ tone: '', text: '' })
   const [submitting, setSubmitting] = useState(false)
+  const [formOpen, setFormOpen] = useState(false)
   const [annulling, setAnnulling] = useState(null)
   const [annulReason, setAnnulReason] = useState('')
   const rows = [...snapshot.movements].reverse()
@@ -463,6 +464,7 @@ function MovementPage() {
       setForm({ type: form.type, concept: '', amount: '', occurredAt: toLocalDateTimeInput() })
       setReceipt(null)
       event.currentTarget.reset()
+      setFormOpen(false)
       setMessage({
         tone: 'success',
         text: compressedReceipt
@@ -501,8 +503,19 @@ function MovementPage() {
         balance={snapshot.currentBalance}
       />
       {canWrite ? (
-        <section className={`${styles.panel} ${styles.formPanel}`}>
-          <div className={styles.panelHeader}><div><p className={styles.eyebrow}>Nuevo registro</p><h2>Agregar movimiento</h2></div></div>
+        <details
+          className={`${styles.panel} ${styles.formPanel} ${styles.movementDisclosure}`}
+          open={formOpen}
+          onToggle={(event) => setFormOpen(event.currentTarget.open)}
+        >
+          <summary className={styles.movementSummary}>
+            <span>
+              <span className={styles.eyebrow}>Nuevo registro</span>
+              <strong>Agregar movimiento</strong>
+            </span>
+            <span className={styles.movementSummaryHint}>{formOpen ? 'Ocultar' : 'Abrir formulario'}</span>
+            <span className={styles.filterChevron} aria-hidden="true" />
+          </summary>
           <form className={styles.movementForm} onSubmit={handleSubmit}>
             <label><span>Tipo</span><select value={form.type} onChange={(event) => updateField('type', event.target.value)}><option>Ingreso</option><option>Egreso</option></select></label>
             <label className={styles.fieldWide}><span>Concepto</span><input value={form.concept} onChange={(event) => updateField('concept', event.target.value)} maxLength="180" required /></label>
@@ -513,7 +526,7 @@ function MovementPage() {
               <button className={styles.primaryButton} disabled={submitting} type="submit">{submitting ? 'Guardando…' : 'Guardar movimiento'}</button>
             </div>
           </form>
-        </section>
+        </details>
       ) : <p className={styles.sourceNotice}>Tu rol es de consulta. Puedes ver y exportar, pero no crear movimientos.</p>}
       {message.text ? <p className={message.tone === 'error' ? styles.formError : styles.successMessage} role="status">{message.text}</p> : null}
       {annulling ? (
