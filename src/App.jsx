@@ -311,7 +311,12 @@ function useCashData(session, onUnauthorized) {
         createdByLabel: 'Usuario Demo',
         reversalOf: null,
         reversalReason: null,
-        receipt: input.receipt ? { id: 'demo-receipt', original_name: input.receipt.name, size_bytes: input.receipt.size } : null,
+        receipt: input.receipt ? {
+          id: `demo-receipt-${crypto.randomUUID()}`,
+          original_name: input.receipt.name,
+          size_bytes: input.receipt.size,
+          local_url: URL.createObjectURL(input.receipt),
+        } : null,
       }
       setState((current) => ({ ...current, movements: [...current.movements, movement], updatedAt: new Date().toISOString() }))
       return
@@ -553,35 +558,84 @@ function MovementPage() {
 
 function AuditMovementsTable({ rows, role, onAnnul }) {
   const reversedIds = new Set(rows.map((row) => row.reversalOf).filter(Boolean))
+  const [receiptError, setReceiptError] = useState('')
+  const [receiptPreview, setReceiptPreview] = useState(null)
+  const [openingReceiptId, setOpeningReceiptId] = useState('')
+
+  useEffect(() => {
+    if (!receiptPreview) return undefined
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') setReceiptPreview(null)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [receiptPreview])
 
   async function openReceipt(receipt) {
-    if (!receipt?.storage_path || isDemoMode) return
-    const url = await createReceiptSignedUrl(receipt.storage_path)
-    window.open(url, '_blank', 'noopener,noreferrer')
+    setReceiptError('')
+
+    if (receipt?.local_url) {
+      setReceiptPreview({ url: receipt.local_url, name: receipt.original_name || 'Comprobante' })
+      return
+    }
+
+    if (!receipt?.storage_path) {
+      setReceiptError('No se encontró el archivo del comprobante.')
+      return
+    }
+
+    setOpeningReceiptId(receipt.id)
+    try {
+      const url = await createReceiptSignedUrl(receipt.storage_path)
+      setReceiptPreview({ url, name: receipt.original_name || 'Comprobante' })
+    } catch (error) {
+      setReceiptError(error.message)
+    } finally {
+      setOpeningReceiptId('')
+    }
   }
 
   return (
-    <div className={styles.auditList}>
-      {rows.map((row) => {
-        const isReversed = reversedIds.has(row.id)
-        return (
-          <article className={styles.auditCard} key={row.id}>
-            <div className={styles.auditMain}>
-              <div><TypeBadge type={row.type} />{row.reversalOf ? <span className={styles.auditFlag}>Contramovimiento</span> : null}{isReversed ? <span className={styles.auditFlag}>Anulado</span> : null}</div>
-              <h3>{row.concept}</h3>
-              <p>Efectivo: {formatDateTime(row.occurredAt)} · Registrado: {formatDateTime(row.createdAt)}</p>
-              <p>Usuario: {row.createdByLabel}</p>
-              {row.reversalReason ? <p>Motivo: {row.reversalReason}</p> : null}
+    <>
+      {receiptError ? <p className={styles.inlineError} role="alert">{receiptError}</p> : null}
+      <div className={styles.auditList}>
+        {rows.map((row) => {
+          const isReversed = reversedIds.has(row.id)
+          return (
+            <article className={styles.auditCard} key={row.id}>
+              <div className={styles.auditMain}>
+                <div><TypeBadge type={row.type} />{row.reversalOf ? <span className={styles.auditFlag}>Contramovimiento</span> : null}{isReversed ? <span className={styles.auditFlag}>Anulado</span> : null}</div>
+                <h3>{row.concept}</h3>
+                <p>Efectivo: {formatDateTime(row.occurredAt)} · Registrado: {formatDateTime(row.createdAt)}</p>
+                <p>Usuario: {row.createdByLabel}</p>
+                {row.reversalReason ? <p>Motivo: {row.reversalReason}</p> : null}
+              </div>
+              <div className={styles.auditAside}>
+                <strong className={row.type === 'Egreso' ? styles.negativeText : styles.positiveText}>{formatCurrency(row.amount)}</strong>
+                {row.receipt ? <button className={styles.inlineButton} disabled={openingReceiptId === row.receipt.id} onClick={() => openReceipt(row.receipt)} type="button">{openingReceiptId === row.receipt.id ? 'Abriendo…' : 'Ver comprobante'}</button> : null}
+                {role === 'admin' && row.type !== 'Apertura' && !row.reversalOf && !isReversed ? <button className={styles.inlineDangerButton} onClick={() => onAnnul(row)} type="button">Anular</button> : null}
+              </div>
+            </article>
+          )
+        })}
+      </div>
+      {receiptPreview ? (
+        <div className={styles.receiptBackdrop} onClick={(event) => { if (event.target === event.currentTarget) setReceiptPreview(null) }} role="presentation">
+          <section aria-labelledby="receipt-preview-title" aria-modal="true" className={styles.receiptDialog} role="dialog">
+            <header>
+              <div>
+                <p className={styles.eyebrow}>Comprobante</p>
+                <h2 id="receipt-preview-title">{receiptPreview.name}</h2>
+              </div>
+              <button aria-label="Cerrar comprobante" className={styles.dialogCloseButton} onClick={() => setReceiptPreview(null)} type="button">×</button>
+            </header>
+            <div className={styles.receiptImageFrame}>
+              <img alt={`Comprobante ${receiptPreview.name}`} src={receiptPreview.url} />
             </div>
-            <div className={styles.auditAside}>
-              <strong className={row.type === 'Egreso' ? styles.negativeText : styles.positiveText}>{formatCurrency(row.amount)}</strong>
-              {row.receipt ? <button className={styles.inlineButton} onClick={() => openReceipt(row.receipt)} type="button">Ver comprobante</button> : null}
-              {role === 'admin' && row.type !== 'Apertura' && !row.reversalOf && !isReversed ? <button className={styles.inlineDangerButton} onClick={() => onAnnul(row)} type="button">Anular</button> : null}
-            </div>
-          </article>
-        )
-      })}
-    </div>
+          </section>
+        </div>
+      ) : null}
+    </>
   )
 }
 
