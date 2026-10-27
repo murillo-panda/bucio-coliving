@@ -1,0 +1,46 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.card {
+  width: min(100%, 440px);
+  padding: 32px;
+  border: 1px solid var(--slate-200);
+  border-radius: 20px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.logo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 18px;
+  object-fit: contain;
+}
+
+.card h1 {
+  margin-bottom: 12px;
+  color: var(--navy-950);
+  font-size: clamp(1.4rem, 5vw, 1.8rem);
+}
+
+.card p {
+  margin-bottom: 24px;
+  color: var(--slate-700);
+  line-height: 1.6;
+}
+
+.card button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--blue-700);
+  color: var(--white);
+  cursor: pointer;
+  font-weight: 700;
+}

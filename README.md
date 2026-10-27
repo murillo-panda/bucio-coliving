@@ -26,6 +26,24 @@ yarn dev
 
 Abre la URL de Vite e inicia sesión con `demo` / `demo`. Los cambios del modo demo viven en memoria y se borran al recargar.
 
+### Probar desde un móvil en la misma red Wi-Fi
+
+Para probar la interfaz, la cámara y la galería sin publicar en Netlify:
+
+```bash
+yarn dev:mobile
+```
+
+Vite mostrará una dirección **Network**, por ejemplo `http://192.168.1.25:5173`. Abre esa dirección desde el móvil conectado al mismo Wi-Fi e inicia sesión con `demo` / `demo`.
+
+Si necesitas probar también la subida real al Storage privado de Supabase, usa:
+
+```bash
+yarn dev:mobile:supabase
+```
+
+Este segundo comando utiliza las variables de `.env` y trabaja con la base configurada. Los movimientos reales son inmutables, por lo que debe usarse solamente para una prueba final controlada. Si macOS pregunta si Node puede aceptar conexiones entrantes, selecciona **Permitir**.
+
 ## Crear el proyecto Supabase
 
 1. Crea un proyecto gratuito en Supabase.
