@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import AppErrorBoundary from './AppErrorBoundary.jsx'
 import { appConfig } from './config/app.js'
 
 document.title = `${appConfig.appName} | ${appConfig.moduleName}`
@@ -12,6 +13,8 @@ document.querySelector('meta[name="description"]')?.setAttribute(
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
   </StrictMode>,
 )

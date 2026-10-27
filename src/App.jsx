@@ -29,6 +29,7 @@ import {
 } from './lib/cashRepository.js'
 import { downloadMovementsCsv } from './lib/export.js'
 import { compressReceipt, formatFileSize } from './lib/images.js'
+import { createClientId } from './lib/ids.js'
 import { requireSupabase, supabase } from './lib/supabase.js'
 import { appConfig, isDemoMode } from './config/app.js'
 import brandLogo from './assets/brand-logo.png'
@@ -326,7 +327,7 @@ function useCashData(session, onUnauthorized) {
     if (isDemoMode) {
       const occurredAt = new Date(input.occurredAt).toISOString()
       const movement = {
-        id: `demo-${crypto.randomUUID()}`,
+        id: `demo-${createClientId()}`,
         date: occurredAt.slice(0, 10),
         occurredAt,
         createdAt: new Date().toISOString(),
@@ -338,7 +339,7 @@ function useCashData(session, onUnauthorized) {
         reversalOf: null,
         reversalReason: null,
         receipt: input.receipt ? {
-          id: `demo-receipt-${crypto.randomUUID()}`,
+          id: `demo-receipt-${createClientId()}`,
           original_name: input.receipt.name,
           size_bytes: input.receipt.size,
           local_url: URL.createObjectURL(input.receipt),
@@ -359,7 +360,7 @@ function useCashData(session, onUnauthorized) {
         const now = new Date().toISOString()
         const reversal = {
           ...original,
-          id: `demo-${crypto.randomUUID()}`,
+          id: `demo-${createClientId()}`,
           date: now.slice(0, 10),
           occurredAt: now,
           createdAt: now,
@@ -385,7 +386,7 @@ function useCashData(session, onUnauthorized) {
         movements: current.movements.map((item) => item.id === movement.id ? {
           ...item,
           receipt: {
-            id: `demo-receipt-${crypto.randomUUID()}`,
+            id: `demo-receipt-${createClientId()}`,
             original_name: receipt.name,
             size_bytes: receipt.size,
             local_url: URL.createObjectURL(receipt),

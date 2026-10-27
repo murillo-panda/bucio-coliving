@@ -1,4 +1,5 @@
 import { appConfig } from '../config/app.js'
+import { createClientId } from './ids.js'
 import { requireSupabase } from './supabase.js'
 
 const typeFromDatabase = {
@@ -132,7 +133,7 @@ export async function attachMovementReceipt({ workspace, movementId, receipt }) 
   const year = String(now.getUTCFullYear())
   const month = String(now.getUTCMonth() + 1).padStart(2, '0')
   const extension = receipt.type === 'image/webp' ? 'webp' : 'jpg'
-  const storagePath = `${workspace.organization.id}/${year}/${month}/${movementId}-${crypto.randomUUID()}.${extension}`
+  const storagePath = `${workspace.organization.id}/${year}/${month}/${movementId}-${createClientId()}.${extension}`
   const uploadResult = await client.storage
     .from('receipts')
     .upload(storagePath, receipt, { contentType: receipt.type, upsert: false })
