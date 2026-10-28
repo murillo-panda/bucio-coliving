@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { mapMovement } from './cashRepository.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { mapMovement, requestAdminUsers } from './cashRepository.js'
 
 const baseRow = {
   id: 'movement-1',
@@ -35,5 +35,32 @@ describe('mapMovement', () => {
     expect(mapMovement({ ...baseRow, receipts: null, visibility }).isHidden).toBe(true)
     expect(mapMovement({ ...baseRow, receipts: null, visibility: [visibility] }).visibilityReason).toBe('Registro de prueba')
     expect(mapMovement({ ...baseRow, receipts: null, visibility: null }).isHidden).toBe(false)
+  })
+})
+
+describe('requestAdminUsers', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('rechaza una respuesta HTML exitosa en vez de dejar users como undefined', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'text/html' }),
+      json: vi.fn(),
+    }))
+
+    await expect(requestAdminUsers('token-de-prueba')).rejects.toThrow('respuesta inválida')
+  })
+
+  it('acepta una lista JSON válida de usuarios', async () => {
+    const users = [{ userId: 'user-1', role: 'owner' }]
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ 'content-type': 'application/json; charset=utf-8' }),
+      json: vi.fn().mockResolvedValue({ users }),
+    }))
+
+    await expect(requestAdminUsers('token-de-prueba')).resolves.toEqual({ users })
   })
 })

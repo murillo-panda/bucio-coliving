@@ -945,7 +945,7 @@ function AdminUsersPage() {
     }
     try {
       const payload = await requestAdminUsers(session.access_token)
-      setUsers(payload.users)
+      setUsers(Array.isArray(payload.users) ? payload.users : [])
       setState((current) => ({ ...current, loading: false, error: '' }))
     } catch (error) {
       setState({ loading: false, error: error.message, success: '' })

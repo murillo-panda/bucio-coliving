@@ -199,7 +199,14 @@ export async function requestAdminUsers(accessToken, options = {}) {
       ...options.headers,
     },
   })
-  const payload = await response.json().catch(() => ({}))
+  const contentType = response.headers?.get?.('content-type') || ''
+  const payload = contentType.includes('application/json')
+    ? await response.json().catch(() => ({}))
+    : {}
   if (!response.ok) throw new Error(payload.error || 'No se pudo completar la gestión de usuarios.')
+  const method = String(options.method || 'GET').toUpperCase()
+  if (method === 'GET' && !Array.isArray(payload.users)) {
+    throw new Error('La API de usuarios devolvió una respuesta inválida. Reinicia el servidor local e inténtalo nuevamente.')
+  }
   return payload
 }
