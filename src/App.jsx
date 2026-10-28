@@ -26,6 +26,7 @@ import {
   loadWorkspace,
   requestAdminUsers,
   reverseMovement,
+  setMovementVisibility,
 } from './lib/cashRepository.js'
 import { downloadMovementsCsv } from './lib/export.js'
 import { compressReceipt, formatFileSize } from './lib/images.js'
@@ -37,6 +38,7 @@ import brandMark from './assets/brand-mark.png'
 import styles from './App.module.css'
 
 const roleLabels = {
+  owner: 'Superusuario',
   admin: 'Administrador',
   operator: 'Operador',
   viewer: 'Consulta',
@@ -278,6 +280,9 @@ function enrichDemoMovements(movements) {
     reversalOf: null,
     reversalReason: null,
     receipt: null,
+    isHidden: false,
+    visibilityReason: '',
+    visibilityUpdatedAt: null,
   }))
 }
 
@@ -301,7 +306,7 @@ function useCashData(session, onUnauthorized) {
           workspace: {
             organization: { id: 'demo-org', name: appConfig.organizationName, slug: appConfig.organizationSlug },
             account: { id: 'demo-cash', name: appConfig.cashAccountName, currency: appConfig.currency },
-            role: 'admin',
+            role: 'owner',
           },
           updatedAt: new Date().toISOString(),
           error: '',
@@ -344,6 +349,9 @@ function useCashData(session, onUnauthorized) {
           size_bytes: input.receipt.size,
           local_url: URL.createObjectURL(input.receipt),
         } : null,
+        isHidden: false,
+        visibilityReason: '',
+        visibilityUpdatedAt: null,
       }
       setState((current) => ({ ...current, movements: [...current.movements, movement], updatedAt: new Date().toISOString() }))
       return
@@ -370,6 +378,9 @@ function useCashData(session, onUnauthorized) {
           reversalOf: original.id,
           reversalReason: reason,
           receipt: null,
+          isHidden: false,
+          visibilityReason: '',
+          visibilityUpdatedAt: null,
         }
         return { ...current, movements: [...current.movements, reversal], updatedAt: now }
       })
@@ -400,12 +411,35 @@ function useCashData(session, onUnauthorized) {
     await load()
   }, [load, state.workspace])
 
-  return { ...state, reload: load, addMovement, addReceipt, annulMovement }
+  const changeMovementVisibility = useCallback(async (movementId, hidden, reason) => {
+    if (isDemoMode) {
+      const updatedAt = new Date().toISOString()
+      setState((current) => ({
+        ...current,
+        movements: current.movements.map((movement) => movement.id === movementId ? {
+          ...movement,
+          isHidden: hidden,
+          visibilityReason: reason.trim(),
+          visibilityUpdatedAt: updatedAt,
+        } : movement),
+        updatedAt,
+      }))
+      return
+    }
+    await setMovementVisibility(movementId, hidden, reason)
+    await load()
+  }, [load])
+
+  return { ...state, reload: load, addMovement, addReceipt, annulMovement, changeMovementVisibility }
 }
 
 function AppShell({ session, onLogout }) {
   const cashData = useCashData(session, onLogout)
   const snapshot = useMemo(() => buildCashSnapshot(cashData.movements), [cashData.movements])
+  const hiddenMovements = useMemo(
+    () => cashData.movements.filter((movement) => movement.isHidden),
+    [cashData.movements],
+  )
   const role = cashData.workspace?.role
 
   return (
@@ -430,7 +464,7 @@ function AppShell({ session, onLogout }) {
         <NavItem to="/diario">Diario</NavItem>
         <NavItem to="/mensual">Mensual</NavItem>
         <NavItem to="/anual">Anual</NavItem>
-        {role === 'admin' ? <NavItem to="/admin/usuarios">Usuarios</NavItem> : null}
+        {role === 'owner' || role === 'admin' ? <NavItem to="/admin/usuarios">Usuarios</NavItem> : null}
       </nav>
       <main className={styles.mainContent}>
         {cashData.status === 'loading' && !cashData.workspace ? (
@@ -446,7 +480,7 @@ function AppShell({ session, onLogout }) {
         {cashData.status !== 'error' && cashData.workspace ? (
           <>
             {isDemoMode ? <p className={styles.sourceNotice}>Modo demo: los cambios se borran al recargar.</p> : null}
-            <Outlet context={{ ...cashData, snapshot, session }} />
+            <Outlet context={{ ...cashData, snapshot, hiddenMovements, session }} />
           </>
         ) : null}
       </main>
@@ -492,8 +526,17 @@ function HomePage() {
 }
 
 function MovementPage() {
-  const { addMovement, addReceipt, annulMovement, session, snapshot, workspace } = useOutletContext()
-  const canWrite = workspace.role === 'admin' || workspace.role === 'operator'
+  const {
+    addMovement,
+    addReceipt,
+    annulMovement,
+    changeMovementVisibility,
+    hiddenMovements,
+    session,
+    snapshot,
+    workspace,
+  } = useOutletContext()
+  const canWrite = ['owner', 'admin', 'operator'].includes(workspace.role)
   const [form, setForm] = useState({ type: 'Ingreso', concept: '', amount: '', occurredAt: toLocalDateTimeInput() })
   const [receipt, setReceipt] = useState(null)
   const [message, setMessage] = useState({ tone: '', text: '' })
@@ -501,7 +544,12 @@ function MovementPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [annulling, setAnnulling] = useState(null)
   const [annulReason, setAnnulReason] = useState('')
+  const [visibilityAction, setVisibilityAction] = useState(null)
+  const [visibilityReason, setVisibilityReason] = useState('')
   const rows = [...snapshot.movements].reverse()
+  const hiddenRows = [...hiddenMovements].sort((left, right) => (
+    right.occurredAt.localeCompare(left.occurredAt) || right.createdAt.localeCompare(left.createdAt)
+  ))
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -541,6 +589,31 @@ function MovementPage() {
       setAnnulling(null)
       setAnnulReason('')
       setMessage({ tone: 'success', text: 'Movimiento anulado mediante un contramovimiento auditable.' })
+    } catch (error) {
+      setMessage({ tone: 'error', text: error.message })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function confirmVisibilityChange(event) {
+    event.preventDefault()
+    if (!visibilityAction || !visibilityReason.trim()) return
+    setSubmitting(true)
+    try {
+      await changeMovementVisibility(
+        visibilityAction.movement.id,
+        visibilityAction.hidden,
+        visibilityReason,
+      )
+      setVisibilityAction(null)
+      setVisibilityReason('')
+      setMessage({
+        tone: 'success',
+        text: visibilityAction.hidden
+          ? 'Movimiento ocultado. Ya no aparece ni afecta los reportes de caja.'
+          : 'Movimiento restaurado. Vuelve a aparecer y a formar parte de los saldos.',
+      })
     } catch (error) {
       setMessage({ tone: 'error', text: error.message })
     } finally {
@@ -597,18 +670,57 @@ function MovementPage() {
           </form>
         </section>
       ) : null}
+      {visibilityAction ? (
+        <section className={`${styles.panel} ${styles.visibilityPanel}`} aria-labelledby="visibility-title">
+          <form onSubmit={confirmVisibilityChange}>
+            <h2 id="visibility-title">
+              {visibilityAction.hidden ? 'Ocultar' : 'Restaurar'} “{visibilityAction.movement.concept}”
+            </h2>
+            <p>
+              {visibilityAction.hidden
+                ? 'El movimiento dejará de aparecer y no afectará ningún saldo o reporte. El registro y su comprobante se conservarán para auditoría.'
+                : 'El movimiento volverá a aparecer y sus importes se incorporarán nuevamente a todos los saldos y reportes.'}
+            </p>
+            <label><span>Motivo obligatorio</span><textarea value={visibilityReason} onChange={(event) => setVisibilityReason(event.target.value)} minLength="5" required /></label>
+            <div className={styles.formActions}>
+              <button className={visibilityAction.hidden ? styles.dangerButton : styles.primaryButton} disabled={submitting} type="submit">
+                {visibilityAction.hidden ? 'Confirmar ocultación' : 'Confirmar restauración'}
+              </button>
+              <button className={styles.filterButton} onClick={() => { setVisibilityAction(null); setVisibilityReason('') }} type="button">Cancelar</button>
+            </div>
+          </form>
+        </section>
+      ) : null}
       <section className={styles.panel}>
         <div className={styles.panelHeader}>
           <div><p className={styles.eyebrow}>Historial auditable</p><h2>Todos los movimientos</h2></div>
           <button className={styles.filterButton} onClick={() => downloadMovementsCsv(rows)} type="button">Descargar CSV</button>
         </div>
-        {rows.length ? <AuditMovementsTable currentUserId={session.user.id} onAnnul={setAnnulling} onAttachReceipt={addReceipt} rows={rows} workspace={workspace} /> : <EmptyReportState text="Todavía no hay movimientos." />}
+        {rows.length ? <AuditMovementsTable currentUserId={session.user.id} onAnnul={setAnnulling} onAttachReceipt={addReceipt} onVisibilityChange={(movement) => setVisibilityAction({ movement, hidden: true })} rows={rows} workspace={workspace} /> : <EmptyReportState text="Todavía no hay movimientos." />}
       </section>
+      {workspace.role === 'owner' ? (
+        <details className={`${styles.panel} ${styles.hiddenMovementsPanel}`}>
+          <summary>
+            <span><span className={styles.eyebrow}>Solo superusuario</span><strong>Movimientos ocultos</strong></span>
+            <span className={styles.recordCount}>{hiddenRows.length} registros</span>
+          </summary>
+          <p className={styles.hiddenMovementsHelp}>Se conservan para auditoría, pero no aparecen ni afectan los reportes mientras estén ocultos.</p>
+          {hiddenRows.length ? (
+            <AuditMovementsTable
+              currentUserId={session.user.id}
+              onAttachReceipt={addReceipt}
+              onVisibilityChange={(movement) => setVisibilityAction({ movement, hidden: false })}
+              rows={hiddenRows}
+              workspace={workspace}
+            />
+          ) : <EmptyReportState text="No hay movimientos ocultos." />}
+        </details>
+      ) : null}
     </>
   )
 }
 
-function AuditMovementsTable({ currentUserId, onAnnul, onAttachReceipt, rows, workspace }) {
+function AuditMovementsTable({ currentUserId, onAnnul, onAttachReceipt, onVisibilityChange, rows, workspace }) {
   const reversedIds = new Set(rows.map((row) => row.reversalOf).filter(Boolean))
 
   return (
@@ -616,9 +728,9 @@ function AuditMovementsTable({ currentUserId, onAnnul, onAttachReceipt, rows, wo
       {rows.map((row) => {
         const isReversed = reversedIds.has(row.id)
         return (
-          <article className={styles.auditCard} key={row.id}>
+          <article className={`${styles.auditCard} ${row.isHidden ? styles.auditCardHidden : ''}`} key={row.id}>
             <div className={styles.auditMain}>
-              <div><TypeBadge type={row.type} />{row.reversalOf ? <span className={styles.auditFlag}>Contramovimiento</span> : null}{isReversed ? <span className={styles.auditFlag}>Anulado</span> : null}</div>
+              <div><TypeBadge type={row.type} />{row.reversalOf ? <span className={styles.auditFlag}>Contramovimiento</span> : null}{isReversed ? <span className={styles.auditFlag}>Anulado</span> : null}{row.isHidden ? <span className={styles.auditFlag}>Oculto</span> : null}</div>
               <h3>{row.concept}</h3>
               <p>Efectivo: {formatDateTime(row.occurredAt)} · Registrado: {formatDateTime(row.createdAt)}</p>
               <p>Usuario: {row.createdByLabel}</p>
@@ -626,10 +738,16 @@ function AuditMovementsTable({ currentUserId, onAnnul, onAttachReceipt, rows, wo
                 <ReceiptAction appearance="link" currentUserId={currentUserId} movement={row} onAttach={onAttachReceipt} workspace={workspace} />
               </div>
               {row.reversalReason ? <p>Motivo: {row.reversalReason}</p> : null}
+              {row.isHidden ? <p>Motivo de ocultación: {row.visibilityReason} · {formatDateTime(row.visibilityUpdatedAt)}</p> : null}
             </div>
             <div className={styles.auditAside}>
               <strong className={row.type === 'Egreso' ? styles.negativeText : styles.positiveText}>{formatCurrency(row.amount)}</strong>
-              {workspace.role === 'admin' && row.type !== 'Apertura' && !row.reversalOf && !isReversed ? <button className={styles.inlineDangerButton} onClick={() => onAnnul(row)} type="button">Anular</button> : null}
+              {['owner', 'admin'].includes(workspace.role) && onAnnul && row.type !== 'Apertura' && !row.reversalOf && !isReversed ? <button className={styles.inlineDangerButton} onClick={() => onAnnul(row)} type="button">Anular</button> : null}
+              {workspace.role === 'owner' && onVisibilityChange && row.type !== 'Apertura' ? (
+                <button className={row.isHidden ? styles.inlineButton : styles.inlineDangerButton} onClick={() => onVisibilityChange(row)} type="button">
+                  {row.isHidden ? 'Restaurar' : 'Ocultar'}
+                </button>
+              ) : null}
             </div>
           </article>
         )
@@ -640,7 +758,7 @@ function AuditMovementsTable({ currentUserId, onAnnul, onAttachReceipt, rows, wo
 
 function canAttachReceipt(movement, workspace, currentUserId) {
   if (movement.receipt || movement.type === 'Apertura') return false
-  if (workspace.role === 'admin') return true
+  if (workspace.role === 'owner' || workspace.role === 'admin') return true
   return workspace.role === 'operator' && movement.createdBy === currentUserId
 }
 
@@ -821,7 +939,7 @@ function AdminUsersPage() {
 
   const loadUsers = useCallback(async () => {
     if (isDemoMode) {
-      setUsers([{ userId: 'demo-user', email: 'demo@local.test', displayName: 'Usuario Demo', role: 'admin', isActive: true }])
+      setUsers([{ userId: 'demo-user', email: 'demo@local.test', displayName: 'Usuario Demo', role: 'owner', isActive: true }])
       setState({ loading: false, error: '', success: '' })
       return
     }
@@ -839,7 +957,7 @@ function AdminUsersPage() {
     return () => window.clearTimeout(timeoutId)
   }, [loadUsers])
 
-  if (workspace.role !== 'admin') return <Navigate to="/" replace />
+  if (!['owner', 'admin'].includes(workspace.role)) return <Navigate to="/" replace />
 
   async function inviteUser(event) {
     event.preventDefault()
@@ -890,8 +1008,8 @@ function AdminUsersPage() {
           {users.map((user) => (
             <article className={styles.userCard} key={user.userId}>
               <div><h3>{user.displayName || user.email}</h3><p>{user.email}</p></div>
-              <label><span>Rol</span><select value={user.role} disabled={isDemoMode || state.loading} onChange={(event) => updateUser(user.userId, { role: event.target.value })}>{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-              <label className={styles.toggleLabel}><input type="checkbox" checked={user.isActive} disabled={isDemoMode || state.loading} onChange={(event) => updateUser(user.userId, { isActive: event.target.checked })} /> Activo</label>
+              <label><span>Rol</span><select value={user.role} disabled={isDemoMode || state.loading || user.role === 'owner'} onChange={(event) => updateUser(user.userId, { role: event.target.value })}>{Object.entries(roleLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+              <label className={styles.toggleLabel}><input type="checkbox" checked={user.isActive} disabled={isDemoMode || state.loading || user.role === 'owner'} onChange={(event) => updateUser(user.userId, { isActive: event.target.checked })} /> Activo</label>
             </article>
           ))}
         </div>

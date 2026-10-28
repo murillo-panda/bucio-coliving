@@ -37,6 +37,7 @@ function normalizeMovements(source) {
       && movement.concept
       && validTypes.has(movement.type)
       && Number.isFinite(movement.amount)
+      && !movement.isHidden
     ))
     .sort((left, right) => (
       left.date.localeCompare(right.date) || left.sourceIndex - right.sourceIndex

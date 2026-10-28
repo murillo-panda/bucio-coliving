@@ -14,4 +14,8 @@ Toda la identidad funcional está centralizada en `src/config/app.js` y se compl
 
 Para un nuevo despliegue usa una base Supabase separada. Así no se mezclan usuarios, comprobantes ni movimientos entre clientes, aunque todos partan del mismo código fuente.
 
+Cada instalación debe configurar `BOOTSTRAP_OWNER_EMAIL` con el correo de su propietario. Ese usuario recibe el rol interno `owner`, visible como **Superusuario**, y es el único que puede ocultar o restaurar movimientos de prueba. La exclusividad se valida con el UUID de Supabase y no depende del nombre visible.
+
+Antes de aplicar migraciones a una instalación real, ejecútalas en el Supabase local definido en `supabase/config.toml`. El modo demo solo valida la interfaz: no reemplaza las pruebas de relaciones, RLS, Storage ni RPC contra Supabase.
+
 La implementación deja el esquema listo para más organizaciones, pero la interfaz selecciona una organización por `VITE_ORGANIZATION_SLUG`. Esto mantiene simple la primera versión sin cerrar la posibilidad de crecer.

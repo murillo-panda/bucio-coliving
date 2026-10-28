@@ -41,6 +41,17 @@ describe('buildCashSnapshot', () => {
     const snapshot = buildCashSnapshot([movements[1], movements[0]])
     expect(snapshot.movements.map((movement) => movement.id)).toEqual(['2', '1'])
   })
+
+  it('excluye movimientos ocultos de los reportes y del saldo', () => {
+    const snapshot = buildCashSnapshot([
+      ...movements,
+      { id: 'test', date: '2026-02-02', concept: 'Prueba', type: 'Egreso', amount: 999, isHidden: true },
+    ])
+
+    expect(snapshot.movements.map((movement) => movement.id)).not.toContain('test')
+    expect(snapshot.currentBalance).toBe(420)
+    expect(snapshot.annual[0].expense).toBe(40)
+  })
 })
 
 describe('formatPeriod', () => {

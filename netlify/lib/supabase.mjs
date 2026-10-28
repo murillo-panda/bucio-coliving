@@ -30,8 +30,8 @@ export async function requireAdmin(client, event) {
     .eq('organization_id', organization.id)
     .eq('user_id', data.user.id)
     .single()
-  if (memberError || !member?.is_active || member.role !== 'admin') {
+  if (memberError || !member?.is_active || !['owner', 'admin'].includes(member.role)) {
     throw Object.assign(new Error('Se requiere el rol administrador.'), { statusCode: 403 })
   }
-  return { user: data.user, organization }
+  return { user: data.user, organization, role: member.role }
 }
