@@ -26,9 +26,15 @@ function throwIfReceiptUploadError(error) {
   throwIfError(error)
 }
 
-function mapMovement(row) {
+function firstRelatedRecord(value) {
+  if (Array.isArray(value)) return value[0] || null
+  return value || null
+}
+
+export function mapMovement(row) {
   const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator
-  const receipts = Array.isArray(row.receipts) ? row.receipts : []
+  const receipt = firstRelatedRecord(row.receipts)
+  const visibility = firstRelatedRecord(row.visibility)
 
   return {
     id: row.id,
@@ -42,7 +48,10 @@ function mapMovement(row) {
     createdByLabel: creator?.display_name || creator?.email || row.created_by_label || 'Migración inicial',
     reversalOf: row.reversal_of,
     reversalReason: row.reversal_reason,
-    receipt: receipts[0] || null,
+    receipt,
+    isHidden: Boolean(visibility?.is_hidden),
+    visibilityReason: visibility?.reason || '',
+    visibilityUpdatedAt: visibility?.updated_at || null,
   }
 }
 
@@ -94,7 +103,8 @@ export async function listMovements(accountId) {
       id, occurred_at, created_at, concept, movement_type, amount,
       created_by, created_by_label, reversal_of, reversal_reason,
       creator:profiles!cash_movements_created_by_fkey(display_name, email),
-      receipts:movement_receipts(id, storage_path, original_name, content_type, size_bytes)
+      receipts:movement_receipts(id, storage_path, original_name, content_type, size_bytes),
+      visibility:cash_movement_visibility(is_hidden, reason, updated_at)
     `)
     .eq('cash_account_id', accountId)
     .order('occurred_at', { ascending: true })
@@ -161,6 +171,17 @@ export async function reverseMovement(movementId, reason) {
   return result.data
 }
 
+export async function setMovementVisibility(movementId, hidden, reason) {
+  const client = requireSupabase()
+  const result = await client.rpc('set_cash_movement_visibility', {
+    target_movement_id: movementId,
+    should_hide: hidden,
+    reason: reason.trim(),
+  })
+  throwIfError(result.error)
+  return result.data
+}
+
 export async function createReceiptSignedUrl(storagePath) {
   const client = requireSupabase()
   const result = await client.storage.from('receipts').createSignedUrl(storagePath, 60)
@@ -178,7 +199,14 @@ export async function requestAdminUsers(accessToken, options = {}) {
       ...options.headers,
     },
   })
-  const payload = await response.json().catch(() => ({}))
+  const contentType = response.headers?.get?.('content-type') || ''
+  const payload = contentType.includes('application/json')
+    ? await response.json().catch(() => ({}))
+    : {}
   if (!response.ok) throw new Error(payload.error || 'No se pudo completar la gestión de usuarios.')
+  const method = String(options.method || 'GET').toUpperCase()
+  if (method === 'GET' && !Array.isArray(payload.users)) {
+    throw new Error('La API de usuarios devolvió una respuesta inválida. Reinicia el servidor local e inténtalo nuevamente.')
+  }
   return payload
 }

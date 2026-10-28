@@ -827,6 +827,7 @@
 .receiptField,
 .userForm label,
 .annulPanel label,
+.visibilityPanel label,
 .userCard label {
   display: grid;
   gap: 7px;
@@ -840,6 +841,7 @@
 .userForm input,
 .userForm select,
 .annulPanel textarea,
+.visibilityPanel textarea,
 .userCard select {
   width: 100%;
   min-height: 44px;
@@ -1050,28 +1052,40 @@
   background: var(--white);
 }
 
-.annulPanel {
+.annulPanel,
+.visibilityPanel {
   margin-bottom: 20px;
   padding: 22px 24px;
+}
+
+.annulPanel {
   border-color: #efcaca;
 }
 
-.annulPanel form {
+.visibilityPanel {
+  border-color: #bed8ec;
+}
+
+.annulPanel form,
+.visibilityPanel form {
   max-width: 680px;
 }
 
-.annulPanel h2 {
+.annulPanel h2,
+.visibilityPanel h2 {
   margin: 0 0 8px;
   color: var(--navy-950);
   font-size: 1.2rem;
 }
 
-.annulPanel p {
+.annulPanel p,
+.visibilityPanel p {
   color: var(--slate-500);
   line-height: 1.5;
 }
 
-.annulPanel textarea {
+.annulPanel textarea,
+.visibilityPanel textarea {
   min-height: 96px;
   margin-bottom: 14px;
   resize: vertical;
@@ -1180,6 +1194,10 @@
   border-bottom: 0;
 }
 
+.auditCardHidden {
+  background: #fffaf0;
+}
+
 .auditMain h3,
 .userCard h3 {
   margin: 8px 0 6px;
@@ -1222,6 +1240,48 @@
   background: var(--slate-100);
   font-size: 0.7rem;
   font-weight: 750;
+}
+
+.hiddenMovementsPanel {
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.hiddenMovementsPanel > summary {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 24px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.hiddenMovementsPanel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.hiddenMovementsPanel > summary:hover,
+.hiddenMovementsPanel[open] > summary {
+  background: var(--blue-50);
+}
+
+.hiddenMovementsPanel > summary strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--navy-950);
+  font-size: 1.15rem;
+}
+
+.hiddenMovementsHelp {
+  margin: 0;
+  padding: 16px 24px;
+  border-top: 1px solid var(--slate-200);
+  border-bottom: 1px solid var(--slate-100);
+  color: var(--slate-500);
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .userCard {
@@ -1580,6 +1640,11 @@
     grid-template-columns: 1fr;
     gap: 14px;
     padding: 18px;
+  }
+
+  .hiddenMovementsPanel > summary,
+  .hiddenMovementsHelp {
+    padding-inline: 18px;
   }
 
   .auditAside {

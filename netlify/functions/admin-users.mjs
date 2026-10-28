@@ -81,6 +81,9 @@ export async function handler(event) {
       .eq('user_id', userId)
       .single()
     if (targetError) throw targetError
+    if (target.role === 'owner') {
+      return json(403, { error: 'El superusuario no se puede modificar ni desactivar.' })
+    }
     const removesActiveAdmin = target.role === 'admin' && target.is_active
       && ((changes.role && changes.role !== 'admin') || changes.is_active === false)
     if (removesActiveAdmin) {

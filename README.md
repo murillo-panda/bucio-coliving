@@ -1,17 +1,18 @@
 # Boilerplate de gestión de caja
 
-Aplicación React + Vite preparada para reutilizarse en distintos negocios cambiando solamente variables de entorno y los dos archivos de marca. Incluye Supabase Auth, PostgreSQL, Storage privado, Netlify Functions, tres roles, auditoría e importación desde Google Sheets.
+Aplicación React + Vite preparada para reutilizarse en distintos negocios cambiando solamente variables de entorno y los dos archivos de marca. Incluye Supabase Auth, PostgreSQL, Storage privado, Netlify Functions, cuatro roles, auditoría e importación desde Google Sheets.
 
 ## Funcionalidad incluida
 
 - login por correo y contraseña;
-- roles `admin`, `operator` y `viewer`;
+- roles `owner` (Superusuario), `admin`, `operator` y `viewer`;
 - una caja por organización en esta primera versión;
 - ingresos y egresos con fecha/hora efectiva elegible;
 - fecha/hora real de creación y usuario responsable;
 - un comprobante opcional por movimiento, convertido a WebP y comprimido en el navegador;
 - movimientos inmutables: no se editan ni eliminan;
 - anulación exclusiva de administradores mediante contramovimiento y motivo obligatorio;
+- ocultación reversible exclusiva del Superusuario, con motivo y auditoría, para excluir pruebas de todos los reportes sin borrar el registro;
 - reportes diario, mensual y anual;
 - exportación manual en CSV;
 - invitaciones y gestión de usuarios;
@@ -47,16 +48,16 @@ Este segundo comando utiliza las variables de `.env` y trabaja con la base confi
 ## Crear el proyecto Supabase
 
 1. Crea un proyecto gratuito en Supabase.
-2. Abre **SQL Editor**, copia y ejecuta `supabase/migrations/202610270001_initial_schema.sql`.
+2. Aplica, en orden, todos los archivos de `supabase/migrations`, o enlaza el proyecto y usa `supabase db push` después de revisar el diff.
 3. En **Authentication > URL Configuration**, añade como URL del sitio tu dominio Netlify y permite `https://TU-SITIO.netlify.app/set-password` como redirect URL.
 4. Copia `.env.example` como `.env` y coloca la URL, `anon key` y `secret key` del proyecto. La clave `service_role` antigua también es compatible. `.env` está ignorado por Git.
-5. Prepara el primer administrador:
+5. Prepara el único Superusuario:
 
 ```bash
 yarn bootstrap:admin
 ```
 
-El correo recibirá una invitación para establecer su propia contraseña.
+El correo recibirá una invitación para establecer su propia contraseña. `BOOTSTRAP_OWNER_EMAIL` define la identidad exclusiva del Superusuario; el script no permite sustituirlo accidentalmente por otra persona.
 
 ## Importar Google Sheets
 
@@ -93,7 +94,7 @@ Netlify debe publicar el repositorio completo, no solo `dist`. `netlify.toml` ya
 2. Cambia las variables de marca/organización en `.env` y Netlify.
 3. Reemplaza `src/assets/brand-logo.png` y `src/assets/brand-mark.png`, conservando esos nombres.
 4. Crea un proyecto Supabase nuevo y ejecuta la misma migración.
-5. Ejecuta `yarn bootstrap:admin` con el correo del nuevo administrador.
+5. Ejecuta `yarn bootstrap:admin` con el correo del propietario que tendrá el rol Superusuario.
 
 No hace falta modificar componentes, rutas, tablas ni reglas de permisos para cambiar el nombre del producto.
 
@@ -104,6 +105,8 @@ No hace falta modificar componentes, rutas, tablas ni reglas de permisos para ca
 - Los comprobantes se guardan en el bucket privado `receipts`; se visualizan con enlaces firmados de 60 segundos.
 - No existen permisos SQL de actualización o borrado sobre movimientos.
 - Las anulaciones son transacciones nuevas que referencian el original.
+- Los movimientos ocultos permanecen en el libro, conservan su comprobante y generan eventos de auditoría, pero RLS impide que otros roles los consulten.
+- Cada organización solo puede tener un Superusuario, ligado a su UUID de Supabase y protegido contra degradación o desactivación.
 - El backend impide desactivar al último administrador activo.
 
 ## Comprobaciones
