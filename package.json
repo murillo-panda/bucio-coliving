@@ -14,7 +14,6 @@
     "test": "vitest run",
     "preview": "vite preview",
     "bootstrap:admin": "node --env-file=.env scripts/bootstrap-admin.mjs",
-    "bootstrap:admin:local": "node --env-file=.env.local scripts/bootstrap-admin.mjs",
     "import:sheets": "node --env-file=.env scripts/import-google-sheets.mjs"
   },
   "dependencies": {

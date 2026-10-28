@@ -45,24 +45,6 @@ yarn dev:mobile:supabase
 
 Este segundo comando utiliza las variables de `.env` y trabaja con la base configurada. Los movimientos reales son inmutables, por lo que debe usarse solamente para una prueba final controlada. Si macOS pregunta si Node puede aceptar conexiones entrantes, selecciona **Permitir**.
 
-## Probar con Supabase local aislado
-
-Requiere Docker Desktop o un runtime de contenedores compatible:
-
-```bash
-supabase start
-supabase status
-```
-
-Configura temporalmente las claves locales mostradas por `supabase status` en un `.env.local`, usa un correo genérico de prueba como `owner@local.test` y ejecuta:
-
-```bash
-yarn bootstrap:admin:local
-yarn dev:mobile:supabase
-```
-
-Este entorno aplica todas las migraciones a una base local independiente. No enlaza ni modifica el proyecto Supabase de producción.
-
 ## Crear el proyecto Supabase
 
 1. Crea un proyecto gratuito en Supabase.
